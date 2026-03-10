@@ -82,13 +82,15 @@ export default function ImageViewer() {
       data-ui-panel
       style={{
         position: "fixed",
-        top: "50%",
-        left: "50%",
-        transform: "translate(-50%, -50%)",
+        top: "36px",
+        left: "12px",
+        right: "72px",
+        bottom: "100px",
         zIndex: 10,
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
+        justifyContent: "center",
         gap: "12px",
       }}
     >
@@ -99,9 +101,9 @@ export default function ImageViewer() {
         onDrop={handleDrop}
         style={{
           position: "relative",
-          // 左右: ゲージ(72px)と余白を除く。上下: タイトル(50px)と下部スペクトル(110px)を除く
-          width: "min(calc(100vw - 120px), calc(100vh - 200px), 600px)",
-          height: "min(calc(100vw - 120px), calc(100vh - 200px), 600px)",
+          width: "100%",
+          height: "100%",
+          maxWidth: "800px",
           border: `2px dashed ${isDragOver ? "rgba(140, 220, 255, 0.7)" : "rgba(200, 230, 255, 0.25)"}`,
           borderRadius: "12px",
           display: "flex",

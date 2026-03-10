@@ -12,38 +12,24 @@ export default function Home() {
     <DepthProvider>
       {/* スクロール用の高さを確保するコンテナ */}
       <div style={{ height: `${TOTAL_SCROLL_HEIGHT}px`, position: "relative" }}>
-        {/* タイトル */}
-        <div style={{
+        {/* 説明テキスト */}
+        <p style={{
           position: "fixed",
-          top: "8px",
+          top: "10px",
           left: "50%",
           transform: "translateX(-50%)",
           zIndex: 20,
-          textAlign: "center",
           pointerEvents: "none",
+          fontFamily: "var(--font-body)",
+          fontSize: "11px",
+          fontWeight: 300,
+          color: "rgba(200, 230, 255, 0.45)",
+          letterSpacing: "0.08em",
+          margin: 0,
+          whiteSpace: "nowrap",
         }}>
-          <h1 style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(20px, 3vw, 28px)",
-            fontWeight: 600,
-            color: "rgba(200, 230, 255, 0.7)",
-            letterSpacing: "0.12em",
-            textShadow: "0 2px 12px rgba(0, 40, 80, 0.5)",
-            margin: 0,
-          }}>
-            ChromaDive
-          </h1>
-          <p style={{
-            fontFamily: "var(--font-body)",
-            fontSize: "11px",
-            fontWeight: 300,
-            color: "rgba(200, 230, 255, 0.4)",
-            marginTop: "2px",
-            letterSpacing: "0.05em",
-          }}>
-            深度別カラーシミュレーション
-          </p>
-        </div>
+          水深に応じた色の見え方をシミュレーション
+        </p>
 
         {/* 背景レイヤー */}
         <OceanBackground />

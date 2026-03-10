@@ -2,23 +2,33 @@
 
 import { useDepth } from "./DepthProvider";
 import { MAX_DEPTH } from "@/lib/constants";
+import {
+  getSkyColors,
+  getUnderwaterColors,
+  getWeatherLightMultiplier,
+  getTimeOfDayLightMultiplier,
+} from "@/lib/environment";
 
 export default function OceanBackground() {
-  const { currentDepth } = useDepth();
+  const { currentDepth, environment } = useDepth();
 
   const depthRatio = currentDepth / MAX_DEPTH;
+  const lightMul = getWeatherLightMultiplier(environment.weather) * getTimeOfDayLightMultiplier(environment.timeOfDay);
 
   const skyOpacity = Math.max(0, 1 - currentDepth / 5);
-  const lightRayOpacity = Math.max(0, 1 - currentDepth / 100) * 0.5;
+  const lightRayOpacity = Math.max(0, 1 - currentDepth / 100) * 0.5 * lightMul;
+
+  const sky = getSkyColors(environment.timeOfDay, environment.weather);
+  const uw = getUnderwaterColors(environment.ocean, environment.timeOfDay, environment.weather);
 
   const bgTop = interpolateColor(
-    [26, 143, 196],
-    [6, 20, 45],
+    uw.shallowTop,
+    uw.deepTop,
     Math.min(1, depthRatio * 1.8)
   );
   const bgBottom = interpolateColor(
-    [10, 61, 107],
-    [2, 8, 20],
+    uw.shallowBottom,
+    uw.deepBottom,
     Math.min(1, depthRatio * 1.5)
   );
 
@@ -48,7 +58,7 @@ export default function OceanBackground() {
         left: 0,
         right: 0,
         height: "35vh",
-        background: "linear-gradient(180deg, #4a90d9 0%, #87CEEB 50%, #b0e0f0 100%)",
+        background: `linear-gradient(180deg, ${sky.top} 0%, ${sky.mid} 50%, ${sky.bottom} 100%)`,
         opacity: skyOpacity,
         transition: "opacity 0.15s ease",
       }}>

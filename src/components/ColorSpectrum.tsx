@@ -3,9 +3,16 @@
 import { useDepth } from "./DepthProvider";
 import { WAVELENGTH_DATA } from "@/lib/constants";
 import { getSpectrumColorAtDepth, colorToCSS } from "@/lib/colorScience";
+import {
+  getOceanAbsorptionMultiplier,
+  getWeatherLightMultiplier,
+  getTimeOfDayLightMultiplier,
+} from "@/lib/environment";
 
 export default function ColorSpectrum() {
-  const { currentDepth } = useDepth();
+  const { currentDepth, environment } = useDepth();
+  const absorptionMul = getOceanAbsorptionMultiplier(environment.ocean);
+  const lightMul = getWeatherLightMultiplier(environment.weather) * getTimeOfDayLightMultiplier(environment.timeOfDay);
 
   return (
     <div
@@ -26,7 +33,7 @@ export default function ColorSpectrum() {
       }}
     >
       {WAVELENGTH_DATA.map((w) => {
-        const depthColor = getSpectrumColorAtDepth(w.color, w.wavelength, currentDepth);
+        const depthColor = getSpectrumColorAtDepth(w.color, w.wavelength, currentDepth, absorptionMul, lightMul);
         const originalCSS = colorToCSS(w.color);
         const depthCSS = colorToCSS(depthColor);
 

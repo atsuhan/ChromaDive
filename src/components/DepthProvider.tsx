@@ -9,12 +9,20 @@ import {
   useRef,
   ReactNode,
 } from "react";
-import { DepthContextType } from "@/types";
+import { DepthContextType, EnvironmentSettings } from "@/types";
 import { MAX_DEPTH, SCROLL_HEIGHT_PER_METER } from "@/lib/constants";
+
+const DEFAULT_ENV: EnvironmentSettings = {
+  ocean: "temperate",
+  weather: "clear",
+  timeOfDay: "day",
+};
 
 const DepthContext = createContext<DepthContextType>({
   currentDepth: 0,
   setDepth: () => {},
+  environment: DEFAULT_ENV,
+  setEnvironment: () => {},
 });
 
 export function useDepth(): DepthContextType {
@@ -23,6 +31,7 @@ export function useDepth(): DepthContextType {
 
 export default function DepthProvider({ children }: { children: ReactNode }) {
   const [currentDepth, setCurrentDepth] = useState(0);
+  const [environment, setEnvironment] = useState<EnvironmentSettings>(DEFAULT_ENV);
   const rafRef = useRef<number>(0);
   const isProgrammaticScroll = useRef(false);
 
@@ -60,7 +69,7 @@ export default function DepthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <DepthContext.Provider value={{ currentDepth, setDepth }}>
+    <DepthContext.Provider value={{ currentDepth, setDepth, environment, setEnvironment }}>
       {children}
     </DepthContext.Provider>
   );

@@ -3,16 +3,23 @@
 import { useDepth } from "./DepthProvider";
 import { createImageProcessor, ImageProcessor } from "@/lib/imageProcessor";
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  getOceanAbsorptionMultiplier,
+  getWeatherLightMultiplier,
+  getTimeOfDayLightMultiplier,
+} from "@/lib/environment";
 
 export default function ImageViewer() {
-  const { currentDepth } = useDepth();
+  const { currentDepth, environment } = useDepth();
+  const absorptionMul = getOceanAbsorptionMultiplier(environment.ocean);
+  const lightMul = getWeatherLightMultiplier(environment.weather) * getTimeOfDayLightMultiplier(environment.timeOfDay);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const processorRef = useRef<ImageProcessor | null>(null);
   const rafRef = useRef<number>(0);
   const [hasImage, setHasImage] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
 
-  // 深度変更時にフィルタを適用
+  // 深度・環境変更時にフィルタを適用
   useEffect(() => {
     if (!processorRef.current || !canvasRef.current) return;
 
@@ -21,10 +28,10 @@ export default function ImageViewer() {
       const processor = processorRef.current!;
       const canvas = canvasRef.current!;
       const ctx = canvas.getContext("2d")!;
-      const filtered = processor.applyDepthFilter(currentDepth);
+      const filtered = processor.applyDepthFilter(currentDepth, absorptionMul, lightMul);
       ctx.putImageData(filtered, 0, 0);
     });
-  }, [currentDepth]);
+  }, [currentDepth, absorptionMul, lightMul]);
 
   const loadImage = useCallback((file: File) => {
     const url = URL.createObjectURL(file);
@@ -38,14 +45,14 @@ export default function ImageViewer() {
       canvas.height = processor.height;
 
       const ctx = canvas.getContext("2d")!;
-      const filtered = processor.applyDepthFilter(currentDepth);
+      const filtered = processor.applyDepthFilter(currentDepth, absorptionMul, lightMul);
       ctx.putImageData(filtered, 0, 0);
 
       setHasImage(true);
       URL.revokeObjectURL(url);
     };
     img.src = url;
-  }, [currentDepth]);
+  }, [currentDepth, absorptionMul, lightMul]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();

@@ -4,6 +4,7 @@ import BubbleParticles from "@/components/BubbleParticles";
 import ColorSpectrum from "@/components/ColorSpectrum";
 import DepthGauge from "@/components/DepthGauge";
 import ImageViewer from "@/components/ImageViewer";
+import EnvironmentPanel from "@/components/EnvironmentPanel";
 import { TOTAL_SCROLL_HEIGHT } from "@/lib/constants";
 
 export default function Home() {
@@ -49,6 +50,7 @@ export default function Home() {
         <BubbleParticles />
 
         {/* UIパネル */}
+        <EnvironmentPanel />
         <ColorSpectrum />
         <ImageViewer />
         <DepthGauge />

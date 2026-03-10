@@ -27,16 +27,18 @@ export default function OceanBackground() {
   const bgTop = useMemo(
     () => getWaterColorAtDepth(
       Math.max(0, currentDepth - viewRange * 0.3),
-      environment.ocean, environment.timeOfDay, environment.weather
+      environment.ocean, environment.timeOfDay, environment.weather,
+      environment.viewDirection
     ),
-    [currentDepth, viewRange, environment.ocean, environment.timeOfDay, environment.weather]
+    [currentDepth, viewRange, environment.ocean, environment.timeOfDay, environment.weather, environment.viewDirection]
   );
   const bgBottom = useMemo(
     () => getWaterColorAtDepth(
       currentDepth + viewRange * 0.7,
-      environment.ocean, environment.timeOfDay, environment.weather
+      environment.ocean, environment.timeOfDay, environment.weather,
+      environment.viewDirection
     ),
-    [currentDepth, viewRange, environment.ocean, environment.timeOfDay, environment.weather]
+    [currentDepth, viewRange, environment.ocean, environment.timeOfDay, environment.weather, environment.viewDirection]
   );
 
   const floorOpacity = Math.max(0, (currentDepth - 175) / 25);

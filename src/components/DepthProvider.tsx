@@ -16,6 +16,7 @@ const DEFAULT_ENV: EnvironmentSettings = {
   ocean: "temperate",
   weather: "clear",
   timeOfDay: "day",
+  viewDirection: "horizontal",
 };
 
 const DepthContext = createContext<DepthContextType>({

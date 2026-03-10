@@ -1,0 +1,52 @@
+{
+  "project": "ChromaDive",
+  "milestones": [
+    {
+      "id": 1,
+      "title": "基盤構築",
+      "goal": "プロジェクトの初期構成が完了し、Hello World相当の画面が表示される",
+      "done": false,
+      "tasks": []
+    },
+    {
+      "id": 2,
+      "title": "機能A: コア機能",
+      "goal": "メイン機能が動作し、ブラウザで確認できる",
+      "done": false,
+      "tasks": []
+    },
+    {
+      "id": 3,
+      "title": "機能B: 追加機能",
+      "goal": "追加機能が動作し、コア機能と連携できる",
+      "done": false,
+      "tasks": []
+    }
+  ],
+  "_comment_tasks_example": {
+    "_note": "tasksはPlannerが着手時に詳細設計して埋める。以下は構造の参考",
+    "tasks": [
+      {
+        "id": "2-1",
+        "title": "○○のドメインモデルとRepository",
+        "wave": 1,
+        "done": false,
+        "branch": "feature/2-1-domain-model"
+      },
+      {
+        "id": "2-2",
+        "title": "○○のAPI実装",
+        "wave": 1,
+        "done": false,
+        "branch": "feature/2-2-api"
+      },
+      {
+        "id": "2-3",
+        "title": "○○の一覧画面UI",
+        "wave": 2,
+        "done": false,
+        "branch": "feature/2-3-list-ui"
+      }
+    ]
+  }
+}

@@ -92,8 +92,9 @@ export default function ImageViewer() {
         onDrop={handleDrop}
         style={{
           position: "relative",
-          width: "min(50vw, 400px)",
-          height: "min(50vw, 400px)",
+          // 左右: ゲージ(72px)と余白を除く。上下: タイトル(50px)と下部スペクトル(110px)を除く
+          width: "min(calc(100vw - 120px), calc(100vh - 200px), 600px)",
+          height: "min(calc(100vw - 120px), calc(100vh - 200px), 600px)",
           border: `2px dashed ${isDragOver ? "rgba(140, 220, 255, 0.7)" : "rgba(200, 230, 255, 0.25)"}`,
           borderRadius: "12px",
           display: "flex",

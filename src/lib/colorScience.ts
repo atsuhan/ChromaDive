@@ -241,6 +241,97 @@ function cie1931(nm: number): [number, number, number] {
   return [Math.max(0, xBar), Math.max(0, yBar), Math.max(0, zBar)];
 }
 
+/**
+ * UV蛍光の発光効果
+ *
+ * 紫外線(UV-A: 315-400nm)が水中に到達する量を計算し、
+ * それに比例してルアーの蛍光塗料が可視光を発する。
+ * UV蛍光塗料は吸収したUVエネルギーを長波長の可視光として再放出する。
+ *
+ * 水中でのUV透過: UVは可視光より吸収が強い(α≈0.04-0.10/m)
+ * → 浅場(0-30m)ではUV蛍光が効果的、深場では減衰
+ *
+ * 蛍光色は元の色のうち明るい成分を増幅する形で表現。
+ * ピンク/チャートリュースなどの蛍光色が深場でも目立つ効果。
+ */
+export function applyUVFluorescence(
+  r: number, g: number, b: number,
+  depthMeters: number,
+  absorptionMultiplier: number = 1.0,
+  lightMultiplier: number = 1.0
+): [number, number, number] {
+  // UV-A(365nm)の水中透過率 — 吸収係数はα≈0.07/m（純水より高い）
+  const uvAlpha = 0.07 * absorptionMultiplier;
+  const uvIntensity = Math.exp(-uvAlpha * depthMeters) * lightMultiplier;
+
+  // 蛍光効率: UVを吸収して可視光に変換（量子収率~0.3-0.8）
+  const fluorescenceYield = 0.6;
+  const emission = uvIntensity * fluorescenceYield;
+
+  // 蛍光塗料は元の色の明るい成分を増幅
+  // 元の色が鮮やかなほど蛍光が強い
+  const max = Math.max(r, g, b);
+  if (max === 0) return [r, g, b];
+
+  // 各チャンネルの蛍光発光量（元の色比率で再放出）
+  const boost = emission * 120;
+  const newR = r + (r / max) * boost;
+  const newG = g + (g / max) * boost;
+  const newB = b + (b / max) * boost;
+
+  return [
+    Math.max(0, Math.min(255, Math.round(newR))),
+    Math.max(0, Math.min(255, Math.round(newG))),
+    Math.max(0, Math.min(255, Math.round(newB))),
+  ];
+}
+
+/**
+ * 蓄光(グロー)の発光効果
+ *
+ * 蓄光塗料は光エネルギーを蓄積し、暗闘で緑〜黄緑に自発光する。
+ * 主に硫化亜鉛やアルミン酸ストロンチウム系の蛍光体。
+ * 発光ピーク: 520nm付近（黄緑）
+ *
+ * 特徴:
+ * - 光を受けている間は蓄光中（発光は目立たない）
+ * - 暗くなるほど（深くなるほど）相対的に発光が目立つ
+ * - 自発光なので水の吸収の影響を受けない（周囲からは見える距離で吸収される）
+ */
+export function applyGlowEffect(
+  r: number, g: number, b: number,
+  depthMeters: number,
+  absorptionMultiplier: number = 1.0,
+  lightMultiplier: number = 1.0
+): [number, number, number] {
+  // 蓄光の充電量: 浅い所で光を受けてから深い所で発光する想定
+  // 濁った水(absorptionMultiplier高)ほど充電が弱い
+  const chargeEfficiency = 1.0 / Math.sqrt(absorptionMultiplier);
+  // 光が弱い環境ほどグローが目立つ
+  const ambientLight = Math.exp(-0.005 * depthMeters) * lightMultiplier;
+  // 暗いほど発光が相対的に際立つ（コントラスト）
+  const glowVisibility = Math.max(0.1, 1.0 - ambientLight);
+
+  // グロー発光強度（一定の自発光 + 暗闘での視認性向上）
+  const glowIntensity = (0.5 + glowVisibility * 0.5) * chargeEfficiency;
+
+  // 発光色: 520nm (黄緑) をピークとする
+  // RGB近似: (180, 255, 100) を基本グロー色として加算
+  const glowR = 180 * glowIntensity * 0.3;
+  const glowG = 255 * glowIntensity * 0.4;
+  const glowB = 100 * glowIntensity * 0.15;
+
+  // 元の明るいピクセルほどグロー塗料が多い想定
+  const brightness = (r + g + b) / (3 * 255);
+  const mix = Math.max(0.2, brightness);
+
+  return [
+    Math.max(0, Math.min(255, Math.round(r + glowR * mix))),
+    Math.max(0, Math.min(255, Math.round(g + glowG * mix))),
+    Math.max(0, Math.min(255, Math.round(b + glowB * mix))),
+  ];
+}
+
 export function colorToCSS(color: [number, number, number]): string {
   return `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
 }

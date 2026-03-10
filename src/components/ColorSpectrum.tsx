@@ -12,12 +12,16 @@ export default function ColorSpectrum() {
       data-ui-panel
       style={{
         position: "fixed",
-        left: "16px",
-        bottom: "16px",
+        left: "12px",
+        bottom: "12px",
+        // 右のゲージ(72px)と余白を確保して見切れ防止
+        right: "80px",
         zIndex: 10,
         display: "flex",
         flexDirection: "row",
+        flexWrap: "wrap",
         gap: "3px",
+        justifyContent: "center",
         alignItems: "flex-end",
       }}
     >
@@ -33,42 +37,43 @@ export default function ColorSpectrum() {
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: "4px",
+              gap: "3px",
+              minWidth: 0,
             }}
           >
             {/* 元の色（小さい丸） */}
             <div style={{
-              width: "6px",
-              height: "6px",
+              width: "5px",
+              height: "5px",
               borderRadius: "50%",
               backgroundColor: originalCSS,
               border: "1px solid rgba(255,255,255,0.25)",
               opacity: 0.8,
+              flexShrink: 0,
             }} />
 
             {/* 深度適用色ボックス */}
             <div
               style={{
-                width: "32px",
-                height: "64px",
+                width: "clamp(20px, calc((100vw - 120px) / 13), 32px)",
+                height: "clamp(40px, 8vw, 64px)",
                 borderRadius: "4px",
                 backgroundColor: depthCSS,
                 transition: "background-color 0.1s ease",
                 border: "1px solid rgba(255,255,255,0.06)",
-                position: "relative",
               }}
             />
 
             {/* ラベル */}
             <div style={{
-              fontSize: "8px",
+              fontSize: "clamp(6px, 1.5vw, 8px)",
               fontWeight: 300,
               color: "rgba(200, 230, 255, 0.5)",
               textAlign: "center",
               lineHeight: 1.1,
               whiteSpace: "nowrap",
             }}>
-              <div>{w.nameJa}</div>
+              {w.nameJa}
             </div>
           </div>
         );

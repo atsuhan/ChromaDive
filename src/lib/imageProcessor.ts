@@ -1,7 +1,7 @@
 import { transformColorAtDepth } from "./colorScience";
 
 export interface ImageProcessor {
-  applyDepthFilter(depth: number): ImageData;
+  applyDepthFilter(depth: number, absorptionMultiplier?: number, lightMultiplier?: number): ImageData;
   width: number;
   height: number;
 }
@@ -37,9 +37,9 @@ export function createImageProcessor(
   return {
     width,
     height,
-    applyDepthFilter(depth: number): ImageData {
-      const roundedDepth = Math.round(depth);
-      if (roundedDepth === cachedDepth && cachedResult) {
+    applyDepthFilter(depth: number, absorptionMultiplier: number = 1.0, lightMultiplier: number = 1.0): ImageData {
+      const cacheKey = `${Math.round(depth)}_${absorptionMultiplier.toFixed(2)}_${lightMultiplier.toFixed(2)}`;
+      if (cacheKey === String(cachedDepth) && cachedResult) {
         return cachedResult;
       }
 
@@ -48,14 +48,14 @@ export function createImageProcessor(
       const dst = output.data;
 
       for (let i = 0; i < src.length; i += 4) {
-        const [r, g, b] = transformColorAtDepth(src[i], src[i + 1], src[i + 2], depth);
+        const [r, g, b] = transformColorAtDepth(src[i], src[i + 1], src[i + 2], depth, absorptionMultiplier, lightMultiplier);
         dst[i] = r;
         dst[i + 1] = g;
         dst[i + 2] = b;
         dst[i + 3] = src[i + 3]; // alphaはそのまま
       }
 
-      cachedDepth = roundedDepth;
+      cachedDepth = cacheKey as unknown as number;
       cachedResult = output;
       return output;
     },

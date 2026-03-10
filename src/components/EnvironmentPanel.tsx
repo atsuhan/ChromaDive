@@ -1,17 +1,19 @@
 "use client";
 
 import { useDepth } from "./DepthProvider";
-import { OceanType, Weather, TimeOfDay } from "@/types";
+import { OceanType, Weather, TimeOfDay, ViewDirection } from "@/types";
 import {
   OCEAN_LABELS,
   WEATHER_LABELS,
   TIME_LABELS,
+  VIEW_LABELS,
 } from "@/lib/environment";
 import { useState } from "react";
 
-const OCEAN_OPTIONS: OceanType[] = ["tropical", "temperate", "coastal"];
+const OCEAN_OPTIONS: OceanType[] = ["tropical", "temperate", "coastal", "redtide", "bluetide"];
 const WEATHER_OPTIONS: Weather[] = ["clear", "cloudy", "rainy"];
 const TIME_OPTIONS: TimeOfDay[] = ["day", "sunset", "night"];
+const VIEW_OPTIONS: ViewDirection[] = ["horizontal", "upward"];
 
 export default function EnvironmentPanel() {
   const { environment, setEnvironment } = useDepth();
@@ -104,6 +106,15 @@ export default function EnvironmentPanel() {
             labels={TIME_LABELS}
             value={environment.timeOfDay}
             onChange={(v) => update({ timeOfDay: v as TimeOfDay })}
+          />
+
+          {/* カメラ方向 */}
+          <OptionGroup
+            label="カメラ方向"
+            options={VIEW_OPTIONS}
+            labels={VIEW_LABELS}
+            value={environment.viewDirection}
+            onChange={(v) => update({ viewDirection: v as ViewDirection })}
           />
         </div>
       )}

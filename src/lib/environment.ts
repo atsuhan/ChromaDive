@@ -1,5 +1,5 @@
-import { OceanType, Weather, TimeOfDay } from "@/types";
-import { getPhysicalWaterColor } from "./colorScience";
+import { OceanType, Weather, TimeOfDay, ViewDirection } from "@/types";
+import { getPhysicalWaterColor, getUpwardWaterColor, ScatterParams } from "./colorScience";
 
 /**
  * 海のタイプごとの吸収係数の倍率
@@ -12,6 +12,8 @@ export function getOceanAbsorptionMultiplier(ocean: OceanType): number {
     case "tropical": return 0.7;
     case "temperate": return 1.0;
     case "coastal": return 1.8;
+    case "redtide": return 2.5;    // 赤潮: 高濁度
+    case "bluetide": return 1.3;   // 青潮: やや濁り
   }
 }
 
@@ -23,11 +25,7 @@ export function getOceanAbsorptionMultiplier(ocean: OceanType): number {
  * chlorophyll: クロロフィル濃度指標。植物プランクトンによる追加吸収(440nm,675nm)。
  *              沿岸・温帯で高い。
  */
-export function getOceanScatterParams(ocean: OceanType): {
-  rayleigh: number;
-  mie: number;
-  chlorophyll: number;
-} {
+export function getOceanScatterParams(ocean: OceanType): ScatterParams {
   switch (ocean) {
     // 熱帯外洋: 極めて透明。レイリー散乱のみ → 鮮やかな青
     case "tropical":
@@ -38,6 +36,12 @@ export function getOceanScatterParams(ocean: OceanType): {
     // 沿岸: 高濁度。ミー散乱が支配的 → 緑がかる
     case "coastal":
       return { rayleigh: 0.6, mie: 1.2, chlorophyll: 1.5 };
+    // 赤潮: 渦鞭毛藻の大量発生。ペリジニン(カロテノイド)が青緑を吸収 → 赤褐色
+    case "redtide":
+      return { rayleigh: 0.4, mie: 1.8, chlorophyll: 3.0, carotenoid: 2.0 };
+    // 青潮: 硫化水素由来の硫黄コロイド。微粒子散乱 → 乳白色の青緑
+    case "bluetide":
+      return { rayleigh: 1.0, mie: 0.8, chlorophyll: 0.2, sulfur: 3.0 };
   }
 }
 
@@ -114,12 +118,16 @@ export function getWaterColorAtDepth(
   depthMeters: number,
   ocean: OceanType,
   timeOfDay: TimeOfDay,
-  weather: Weather
+  weather: Weather,
+  viewDirection: ViewDirection = "horizontal"
 ): [number, number, number] {
   const absorptionMul = getOceanAbsorptionMultiplier(ocean);
   const lightMul = getTimeOfDayLightMultiplier(timeOfDay) * getWeatherLightMultiplier(weather);
   const scatter = getOceanScatterParams(ocean);
 
+  if (viewDirection === "upward") {
+    return getUpwardWaterColor(depthMeters, absorptionMul, lightMul, scatter);
+  }
   return getPhysicalWaterColor(depthMeters, absorptionMul, lightMul, scatter);
 }
 
@@ -127,6 +135,8 @@ export const OCEAN_LABELS: Record<OceanType, string> = {
   tropical: "熱帯",
   temperate: "温帯",
   coastal: "沿岸",
+  redtide: "赤潮",
+  bluetide: "青潮",
 };
 
 export const WEATHER_LABELS: Record<Weather, string> = {
@@ -139,4 +149,9 @@ export const TIME_LABELS: Record<TimeOfDay, string> = {
   day: "日中",
   sunset: "夕方",
   night: "夜",
+};
+
+export const VIEW_LABELS: Record<ViewDirection, string> = {
+  horizontal: "水平",
+  upward: "上空",
 };

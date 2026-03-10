@@ -98,94 +98,151 @@ export function transformColorAtDepth(
 }
 
 /**
+ * 散乱パラメータ型
+ *
+ * rayleigh: 純水のレイリー散乱強度
+ * mie: ミー散乱（懸濁粒子）
+ * chlorophyll: クロロフィル濃度（440nm,675nm吸収）
+ * carotenoid: カロテノイド色素（赤潮: 450-550nm吸収）
+ * sulfur: 硫黄コロイド粒子散乱（青潮: λ^-2散乱）
+ */
+export interface ScatterParams {
+  rayleigh: number;
+  mie: number;
+  chlorophyll: number;
+  carotenoid?: number;
+  sulfur?: number;
+}
+
+/**
  * 水中の環境光色を物理計算で求める
  *
- * 太陽光（白色光）が水深 d メートルを通過した後の色を
- * Beer-Lambert法で波長ごとに計算し、RGB合成する。
+ * 太陽光（白色光）が水深 d メートルを通過した後の
+ * 散乱光スペクトルを CIE XYZ → sRGB 変換で色に変換。
  *
- * 可視光域 380-720nm を 10nm 刻みでサンプリングし、
- * CIE 1931 XYZ 等色関数 → sRGB 変換で正確な色を得る。
+ * 散乱モデル:
+ * - レイリー散乱 (∝ λ^-4): 水分子 → 青が支配的
+ * - ミー散乱: 懸濁粒子 → 緑寄り
+ * - 硫黄コロイド散乱 (∝ λ^-2): 青潮 → 乳白青緑
  *
- * さらに海域固有の散乱を加算:
- * - 純水: レイリー散乱 (∝ λ^-4) → 青が支配的
- * - 沿岸: ミー散乱 (粒子・植物プランクトン) → 緑がかる
+ * 追加吸収:
+ * - クロロフィル: 440nm + 675nm
+ * - カロテノイド(ペリジニン): 450-550nm (赤潮)
+ *
+ * 明度制御: スペクトル積分で色相を決定し、
+ * 深度に応じた目標輝度に正規化して現実的な明るさにする。
  */
 export function getPhysicalWaterColor(
   depthMeters: number,
   absorptionMultiplier: number = 1.0,
   lightMultiplier: number = 1.0,
-  scatterParams: { rayleigh: number; mie: number; chlorophyll: number } = {
+  scatterParams: ScatterParams = {
     rayleigh: 1.0,
     mie: 0.0,
     chlorophyll: 0.0,
   }
 ): [number, number, number] {
   if (depthMeters <= 0) {
-    // 水面: 光の色そのもの
-    const v = Math.round(255 * lightMultiplier);
-    return [
-      Math.min(255, v),
-      Math.min(255, v),
-      Math.min(255, v),
-    ];
+    return getPhysicalWaterColor(0.5, absorptionMultiplier, lightMultiplier, scatterParams);
   }
 
-  // CIE XYZ 積分
+  const carotenoid = scatterParams.carotenoid ?? 0;
+  const sulfur = scatterParams.sulfur ?? 0;
+
   let X = 0, Y = 0, Z = 0;
 
-  for (let nm = 380; nm <= 720; nm += 5) {
-    // Beer-Lambert: 水の吸収による透過率
-    const alpha = interpolateAbsorptionCoefficient(nm) * absorptionMultiplier;
-    let transmittance = Math.exp(-alpha * depthMeters);
+  // この深度で利用可能な光量（太陽光が水面からここまで到達する分）
+  const availableLightFade = Math.exp(-0.008 * depthMeters);
+  const energyBudget = availableLightFade * lightMultiplier;
 
-    // 植物プランクトンによる追加吸収 (ピーク 440nm, 675nm)
+  // 色素による追加吸収を計算するヘルパー
+  const pigmentAbsorption = (nm: number): number => {
+    let extra = 0;
+    // クロロフィル-a: 440nm (ソーレー帯) と 675nm (Q帯) に吸収ピーク
     if (scatterParams.chlorophyll > 0) {
       const chlAbs440 = Math.exp(-((nm - 440) ** 2) / (2 * 30 ** 2));
       const chlAbs675 = Math.exp(-((nm - 675) ** 2) / (2 * 20 ** 2));
-      const chlAbsorption = scatterParams.chlorophyll * (chlAbs440 * 0.04 + chlAbs675 * 0.02);
-      transmittance *= Math.exp(-chlAbsorption * depthMeters);
+      extra += scatterParams.chlorophyll * (chlAbs440 * 0.04 + chlAbs675 * 0.02);
     }
+    // カロテノイド(ペリジニン): 450-550nm を強く吸収 → 赤潮の赤褐色の原因
+    if (carotenoid > 0) {
+      const caroAbs = Math.exp(-((nm - 490) ** 2) / (2 * 50 ** 2));
+      extra += carotenoid * caroAbs * 0.06;
+    }
+    return extra;
+  };
 
-    // 入射光スペクトル（太陽光 × 光量倍率）
-    const irradiance = transmittance * lightMultiplier;
+  // レイリー散乱: 水分子による散乱 (∝ λ^-4)
+  // 短波長（青/紫）が強く散乱される → 海が青く見える主因
+  {
+    const strength = scatterParams.rayleigh * energyBudget;
+    for (let nm = 380; nm <= 720; nm += 5) {
+      const alpha = interpolateAbsorptionCoefficient(nm) * absorptionMultiplier;
+      const extraAbs = pigmentAbsorption(nm);
+      const transmittance = Math.exp(-(alpha + extraAbs) * depthMeters);
+      const rayleighProb = Math.pow(470 / nm, 4);
+      const scattered = transmittance * rayleighProb * strength;
 
-    // CIE 1931 等色関数の近似
-    const [xBar, yBar, zBar] = cie1931(nm);
-    X += irradiance * xBar * 5;
-    Y += irradiance * yBar * 5;
-    Z += irradiance * zBar * 5;
-  }
-
-  // 散乱光の寄与を加算
-  // 水中を見ているとき、散乱で視線方向に入ってくる光
-  const scatterDepthFade = Math.exp(-0.008 * depthMeters);
-
-  // レイリー散乱: 短波長ほど強い (∝ λ^-4)
-  if (scatterParams.rayleigh > 0) {
-    const scatterStrength = scatterParams.rayleigh * scatterDepthFade * lightMultiplier;
-    for (let nm = 380; nm <= 720; nm += 10) {
-      const rayleighIntensity = Math.pow(470 / nm, 4); // 470nmを基準に正規化
       const [xBar, yBar, zBar] = cie1931(nm);
-      const s = rayleighIntensity * scatterStrength * 0.15;
-      X += s * xBar * 10;
-      Y += s * yBar * 10;
-      Z += s * zBar * 10;
+      X += scattered * xBar * 5;
+      Y += scattered * yBar * 5;
+      Z += scattered * zBar * 5;
     }
   }
 
-  // ミー散乱: 波長依存性が弱い（大きな粒子）、やや緑寄り
+  // ミー散乱: 懸濁粒子（プランクトン・泥など）による散乱
+  // 波長依存性が弱い（大粒子）が、色素吸収で赤/青が消え緑が残る
   if (scatterParams.mie > 0) {
-    const mieStrength = scatterParams.mie * scatterDepthFade * lightMultiplier;
-    for (let nm = 380; nm <= 720; nm += 10) {
-      // 緑をピークとするブロードな散乱
+    const strength = scatterParams.mie * energyBudget;
+    for (let nm = 380; nm <= 720; nm += 5) {
+      const alpha = interpolateAbsorptionCoefficient(nm) * absorptionMultiplier;
+      const extraAbs = pigmentAbsorption(nm);
+      const transmittance = Math.exp(-(alpha + extraAbs) * depthMeters);
       const miePeak = Math.exp(-((nm - 540) ** 2) / (2 * 80 ** 2));
-      const mieIntensity = 0.3 + 0.7 * miePeak;
+      const mieProb = 0.4 + 0.6 * miePeak;
+      const scattered = transmittance * mieProb * strength;
+
       const [xBar, yBar, zBar] = cie1931(nm);
-      const s = mieIntensity * mieStrength * 0.12;
-      X += s * xBar * 10;
-      Y += s * yBar * 10;
-      Z += s * zBar * 10;
+      X += scattered * xBar * 5;
+      Y += scattered * yBar * 5;
+      Z += scattered * zBar * 5;
     }
+  }
+
+  // 硫黄コロイド散乱（青潮）: 微細硫黄粒子による散乱
+  // レイリーとミーの中間的な波長依存性 (∝ λ^-2)
+  // 乳白色の青緑に見える
+  if (sulfur > 0) {
+    const strength = sulfur * energyBudget;
+    for (let nm = 380; nm <= 720; nm += 5) {
+      const alpha = interpolateAbsorptionCoefficient(nm) * absorptionMultiplier;
+      const extraAbs = pigmentAbsorption(nm);
+      const transmittance = Math.exp(-(alpha + extraAbs) * depthMeters);
+      const sulfurProb = Math.pow(500 / nm, 2);
+      const scattered = transmittance * sulfurProb * strength;
+
+      const [xBar, yBar, zBar] = cie1931(nm);
+      X += scattered * xBar * 5;
+      Y += scattered * yBar * 5;
+      Z += scattered * zBar * 5;
+    }
+  }
+
+  // 明度の正規化: スペクトル積分は正確な色相を与えるが
+  // 絶対的な明るさは物理単位と画面表示の間に任意性がある。
+  // 深度に応じた目標輝度に合わせることで
+  // 浅場=豊かで飽和した色、深場=暗い色を実現する。
+  const baseBrightness = 0.18;
+  const depthDarkening = Math.exp(-0.02 * depthMeters);
+  // 硫黄コロイドは水を乳白色にする（明度を上げ、彩度を下げる）
+  const sulfurBrightBoost = 1.0 + sulfur * 0.3;
+  const targetY = baseBrightness * depthDarkening * lightMultiplier * sulfurBrightBoost;
+
+  if (Y > 1e-8) {
+    const normalizer = targetY / Y;
+    X *= normalizer;
+    Y *= normalizer;
+    Z *= normalizer;
   }
 
   // XYZ → linear sRGB
@@ -201,12 +258,10 @@ export function getPhysicalWaterColor(
       : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055;
   };
 
-  // スケーリング: Y=1.0 (完全白) が 255 になるように
-  const scale = 255;
   return [
-    Math.max(0, Math.min(255, Math.round(toSRGB(rLin) * scale))),
-    Math.max(0, Math.min(255, Math.round(toSRGB(gLin) * scale))),
-    Math.max(0, Math.min(255, Math.round(toSRGB(bLin) * scale))),
+    Math.max(0, Math.min(255, Math.round(toSRGB(rLin) * 255))),
+    Math.max(0, Math.min(255, Math.round(toSRGB(gLin) * 255))),
+    Math.max(0, Math.min(255, Math.round(toSRGB(bLin) * 255))),
   ];
 }
 
@@ -239,6 +294,96 @@ function cie1931(nm: number): [number, number, number] {
     0.681 * Math.exp(-0.5 * t7 * t7);
 
   return [Math.max(0, xBar), Math.max(0, yBar), Math.max(0, zBar)];
+}
+
+/**
+ * 上空を見上げた時の水中背景色を物理計算
+ *
+ * 太陽光が水面から depthMeters を透過した後の残存スペクトルを
+ * CIE XYZ → sRGB で色に変換する。
+ *
+ * 水平方向（散乱光）と違い、直接透過光が支配的:
+ * - 浅い所: 明るい白〜青白（全波長が透過）
+ * - 中間: 青緑（赤・橙が吸収済み）
+ * - 深い所: 暗い青〜暗闇（短波長のみ残る）
+ *
+ * スネルの窓（Snell's window）効果:
+ * 水面を見上げると約97°の円錐に空が見え、外側は全反射で暗い。
+ */
+export function getUpwardWaterColor(
+  depthMeters: number,
+  absorptionMultiplier: number = 1.0,
+  lightMultiplier: number = 1.0,
+  scatterParams: ScatterParams = {
+    rayleigh: 1.0,
+    mie: 0.0,
+    chlorophyll: 0.0,
+  }
+): [number, number, number] {
+  if (depthMeters <= 0) {
+    const v = Math.round(230 * lightMultiplier);
+    return [
+      Math.min(255, Math.round(v * 0.7)),
+      Math.min(255, Math.round(v * 0.9)),
+      Math.min(255, v),
+    ];
+  }
+
+  let X = 0, Y = 0, Z = 0;
+
+  const carotenoid = scatterParams.carotenoid ?? 0;
+
+  // 直接透過光: 太陽光がdepthMetersを通過して目に届く
+  for (let nm = 380; nm <= 720; nm += 5) {
+    const alpha = interpolateAbsorptionCoefficient(nm) * absorptionMultiplier;
+
+    let extraAbs = 0;
+    if (scatterParams.chlorophyll > 0) {
+      const chlAbs440 = Math.exp(-((nm - 440) ** 2) / (2 * 30 ** 2));
+      const chlAbs675 = Math.exp(-((nm - 675) ** 2) / (2 * 20 ** 2));
+      extraAbs += scatterParams.chlorophyll * (chlAbs440 * 0.04 + chlAbs675 * 0.02);
+    }
+    if (carotenoid > 0) {
+      const caroAbs = Math.exp(-((nm - 490) ** 2) / (2 * 50 ** 2));
+      extraAbs += carotenoid * caroAbs * 0.06;
+    }
+
+    const transmittance = Math.exp(-(alpha + extraAbs) * depthMeters);
+    const irradiance = transmittance * lightMultiplier;
+
+    const [xBar, yBar, zBar] = cie1931(nm);
+    X += irradiance * xBar * 5;
+    Y += irradiance * yBar * 5;
+    Z += irradiance * zBar * 5;
+  }
+
+  // スネルの窓: 深くなるほど窓の外（全反射=散乱光）の割合が増す
+  const snellWindowRatio = Math.max(0.15, 1.0 - depthMeters * 0.003);
+  const scatter = getPhysicalWaterColor(depthMeters, absorptionMultiplier, lightMultiplier, scatterParams);
+
+  // XYZ → linear sRGB
+  const rLin =  3.2406 * X - 1.5372 * Y - 0.4986 * Z;
+  const gLin = -0.9689 * X + 1.8758 * Y + 0.0415 * Z;
+  const bLin =  0.0557 * X - 0.2040 * Y + 1.0570 * Z;
+
+  const toSRGB = (c: number) => {
+    const clamped = Math.max(0, c);
+    return clamped <= 0.0031308
+      ? clamped * 12.92
+      : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055;
+  };
+
+  const scale = 255;
+  const dR = Math.max(0, Math.min(255, Math.round(toSRGB(rLin) * scale)));
+  const dG = Math.max(0, Math.min(255, Math.round(toSRGB(gLin) * scale)));
+  const dB = Math.max(0, Math.min(255, Math.round(toSRGB(bLin) * scale)));
+
+  // スネルの窓（直接光）と周囲（散乱光）をブレンド
+  return [
+    Math.round(dR * snellWindowRatio + scatter[0] * (1 - snellWindowRatio)),
+    Math.round(dG * snellWindowRatio + scatter[1] * (1 - snellWindowRatio)),
+    Math.round(dB * snellWindowRatio + scatter[2] * (1 - snellWindowRatio)),
+  ];
 }
 
 /**

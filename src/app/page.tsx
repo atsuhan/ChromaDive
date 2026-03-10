@@ -4,13 +4,13 @@ import BubbleParticles from "@/components/BubbleParticles";
 import ColorSpectrum from "@/components/ColorSpectrum";
 import DepthGauge from "@/components/DepthGauge";
 import ImageViewer from "@/components/ImageViewer";
-import ViewModeToggle from "@/components/ViewModeToggle";
-import ScrollContainer from "@/components/ScrollContainer";
+import { TOTAL_SCROLL_HEIGHT } from "@/lib/constants";
 
 export default function Home() {
   return (
     <DepthProvider>
-      <ScrollContainer>
+      {/* スクロール用の高さを確保するコンテナ */}
+      <div style={{ height: `${TOTAL_SCROLL_HEIGHT}px`, position: "relative" }}>
         {/* タイトル */}
         <div style={{
           position: "fixed",
@@ -44,9 +44,6 @@ export default function Home() {
           </p>
         </div>
 
-        {/* モード切替 */}
-        <ViewModeToggle />
-
         {/* 背景レイヤー */}
         <OceanBackground />
         <BubbleParticles />
@@ -55,7 +52,7 @@ export default function Home() {
         <ColorSpectrum />
         <ImageViewer />
         <DepthGauge />
-      </ScrollContainer>
+      </div>
     </DepthProvider>
   );
 }

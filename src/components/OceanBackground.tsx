@@ -4,7 +4,7 @@ import { useDepth } from "./DepthProvider";
 import { MAX_DEPTH } from "@/lib/constants";
 
 export default function OceanBackground() {
-  const { currentDepth, camera, viewMode } = useDepth();
+  const { currentDepth } = useDepth();
 
   const depthRatio = currentDepth / MAX_DEPTH;
 
@@ -22,30 +22,14 @@ export default function OceanBackground() {
     Math.min(1, depthRatio * 1.5)
   );
 
-  // 海底の可視度（180m以降で徐々に表示）
   const floorOpacity = Math.max(0, (currentDepth - 175) / 25);
-
-  // カメラモード: 見上げたとき水面が見える効果
-  const lookingUp = viewMode === "camera" ? Math.max(0, -camera.rotateX) / 90 : 0;
-  // 見上げ時の水面光の強さ
-  const surfaceGlowOpacity = lookingUp * Math.max(0, 1 - depthRatio * 2) * 0.8;
-
-  // 3Dトランスフォーム
-  const transform = viewMode === "camera"
-    ? `perspective(1200px) rotateX(${camera.rotateX * 0.15}deg) rotateY(${camera.rotateY * 0.1}deg) scale(${1 + Math.abs(camera.rotateX) * 0.002})`
-    : "none";
 
   return (
     <div style={{
       position: "fixed",
-      inset: "-5%",
-      width: "110%",
-      height: "110%",
+      inset: 0,
       zIndex: 0,
       overflow: "hidden",
-      transform,
-      transition: viewMode === "scroll" ? "transform 0.3s ease" : "none",
-      willChange: "transform",
     }}>
       {/* 海中グラデーション */}
       <div style={{
@@ -63,7 +47,7 @@ export default function OceanBackground() {
         top: 0,
         left: 0,
         right: 0,
-        height: "35%",
+        height: "35vh",
         background: "linear-gradient(180deg, #4a90d9 0%, #87CEEB 50%, #b0e0f0 100%)",
         opacity: skyOpacity,
         transition: "opacity 0.15s ease",
@@ -89,10 +73,10 @@ export default function OceanBackground() {
       {/* 水面の波 */}
       <div style={{
         position: "absolute",
-        top: "34%",
+        top: "34vh",
         left: 0,
         right: 0,
-        height: "8%",
+        height: "8vh",
         opacity: skyOpacity,
         background: "linear-gradient(180deg, rgba(176,224,240,0.6) 0%, rgba(26,143,196,0.3) 50%, transparent 100%)",
       }}>
@@ -102,19 +86,6 @@ export default function OceanBackground() {
             fill="rgba(176,224,240,0.5)"/>
         </svg>
       </div>
-
-      {/* 水面を見上げたときの光（カメラモード） */}
-      <div style={{
-        position: "absolute",
-        top: 0,
-        left: "10%",
-        right: "10%",
-        height: "60%",
-        opacity: surfaceGlowOpacity,
-        background: "radial-gradient(ellipse 80% 40% at 50% 0%, rgba(140, 210, 255, 0.5) 0%, rgba(60, 150, 220, 0.2) 40%, transparent 70%)",
-        pointerEvents: "none",
-        transition: "opacity 0.2s ease",
-      }} />
 
       {/* 光線エフェクト */}
       <div style={{
@@ -157,7 +128,7 @@ export default function OceanBackground() {
         bottom: 0,
         left: 0,
         right: 0,
-        height: "20%",
+        height: "20vh",
         opacity: floorOpacity,
         background: "linear-gradient(0deg, #1a1208 0%, #0d0a04 40%, transparent 100%)",
       }}>

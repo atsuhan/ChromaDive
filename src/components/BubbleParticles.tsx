@@ -12,13 +12,9 @@ const BUBBLES = Array.from({ length: 18 }).map((_, i) => ({
 }));
 
 export default function BubbleParticles() {
-  const { currentDepth, camera, viewMode } = useDepth();
+  const { currentDepth } = useDepth();
 
   const opacity = Math.max(0.03, 0.3 - (currentDepth / MAX_DEPTH) * 0.25);
-
-  const transform = viewMode === "camera"
-    ? `perspective(1200px) rotateX(${camera.rotateX * 0.1}deg) rotateY(${camera.rotateY * 0.08}deg)`
-    : "none";
 
   return (
     <div style={{
@@ -27,8 +23,6 @@ export default function BubbleParticles() {
       zIndex: 1,
       pointerEvents: "none",
       opacity,
-      transform,
-      transition: viewMode === "scroll" ? "transform 0.3s ease" : "none",
     }}>
       {BUBBLES.map((b) => (
         <div

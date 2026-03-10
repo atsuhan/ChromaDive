@@ -2,7 +2,8 @@ import { WavelengthInfo } from "@/types";
 
 export const MAX_DEPTH = 200;
 export const SCROLL_HEIGHT_PER_METER = 20;
-export const TOTAL_SCROLL_HEIGHT = MAX_DEPTH * SCROLL_HEIGHT_PER_METER;
+// 最後までスクロールできるよう画面1つ分を加算
+export const TOTAL_SCROLL_HEIGHT = MAX_DEPTH * SCROLL_HEIGHT_PER_METER + 1000;
 
 export const WAVELENGTH_DATA: WavelengthInfo[] = [
   { name: "Violet",       nameJa: "紫",     wavelength: 400, color: [127,   0, 255], absorptionCoefficient: 0.02 },

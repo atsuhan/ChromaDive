@@ -4,10 +4,11 @@ import { useDepth } from "./DepthProvider";
 import { MAX_DEPTH } from "@/lib/constants";
 import {
   getSkyColors,
-  getUnderwaterColors,
+  getWaterColorAtDepth,
   getWeatherLightMultiplier,
   getTimeOfDayLightMultiplier,
 } from "@/lib/environment";
+import { useMemo } from "react";
 
 export default function OceanBackground() {
   const { currentDepth, environment } = useDepth();
@@ -19,17 +20,23 @@ export default function OceanBackground() {
   const lightRayOpacity = Math.max(0, 1 - currentDepth / 100) * 0.5 * lightMul;
 
   const sky = getSkyColors(environment.timeOfDay, environment.weather);
-  const uw = getUnderwaterColors(environment.ocean, environment.timeOfDay, environment.weather);
 
-  const bgTop = interpolateColor(
-    uw.shallowTop,
-    uw.deepTop,
-    Math.min(1, depthRatio * 1.8)
+  // 画面上部 = 現在の深度、画面下部 = 現在の深度 + 見通し距離
+  // 実際の水中では上を見ると浅い色、下を見ると深い色が見える
+  const viewRange = Math.max(5, 30 - depthRatio * 20);
+  const bgTop = useMemo(
+    () => getWaterColorAtDepth(
+      Math.max(0, currentDepth - viewRange * 0.3),
+      environment.ocean, environment.timeOfDay, environment.weather
+    ),
+    [currentDepth, viewRange, environment.ocean, environment.timeOfDay, environment.weather]
   );
-  const bgBottom = interpolateColor(
-    uw.shallowBottom,
-    uw.deepBottom,
-    Math.min(1, depthRatio * 1.5)
+  const bgBottom = useMemo(
+    () => getWaterColorAtDepth(
+      currentDepth + viewRange * 0.7,
+      environment.ocean, environment.timeOfDay, environment.weather
+    ),
+    [currentDepth, viewRange, environment.ocean, environment.timeOfDay, environment.weather]
   );
 
   const floorOpacity = Math.max(0, (currentDepth - 175) / 25);
@@ -41,7 +48,7 @@ export default function OceanBackground() {
       zIndex: 0,
       overflow: "hidden",
     }}>
-      {/* 海中グラデーション */}
+      {/* 海中グラデーション — Beer-Lambert法で計算された物理色 */}
       <div style={{
         position: "absolute",
         inset: 0,
@@ -160,16 +167,4 @@ export default function OceanBackground() {
       `}</style>
     </div>
   );
-}
-
-function interpolateColor(
-  from: [number, number, number],
-  to: [number, number, number],
-  t: number
-): [number, number, number] {
-  return [
-    Math.round(from[0] + (to[0] - from[0]) * t),
-    Math.round(from[1] + (to[1] - from[1]) * t),
-    Math.round(from[2] + (to[2] - from[2]) * t),
-  ];
 }

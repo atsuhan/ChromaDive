@@ -1,4 +1,5 @@
 import { OceanType, Weather, TimeOfDay } from "@/types";
+import { getPhysicalWaterColor } from "./colorScience";
 
 /**
  * 海のタイプごとの吸収係数の倍率
@@ -15,14 +16,28 @@ export function getOceanAbsorptionMultiplier(ocean: OceanType): number {
 }
 
 /**
- * 海のタイプごとの散乱光の色味調整
- * 熱帯: 青が強い、沿岸: 緑がかる
+ * 海域ごとの散乱パラメータ
+ *
+ * rayleigh: 純水のレイリー散乱強度。全海域で存在するが透明度が高いほど支配的。
+ * mie: ミー散乱（懸濁粒子による）。沿岸で強い。波長依存性が弱く緑寄り。
+ * chlorophyll: クロロフィル濃度指標。植物プランクトンによる追加吸収(440nm,675nm)。
+ *              沿岸・温帯で高い。
  */
-export function getOceanTint(ocean: OceanType): [number, number, number] {
+export function getOceanScatterParams(ocean: OceanType): {
+  rayleigh: number;
+  mie: number;
+  chlorophyll: number;
+} {
   switch (ocean) {
-    case "tropical": return [0, 5, 15];
-    case "temperate": return [0, 0, 0];
-    case "coastal": return [5, 10, -5];
+    // 熱帯外洋: 極めて透明。レイリー散乱のみ → 鮮やかな青
+    case "tropical":
+      return { rayleigh: 1.2, mie: 0.05, chlorophyll: 0.1 };
+    // 温帯: 適度なプランクトン。青緑
+    case "temperate":
+      return { rayleigh: 1.0, mie: 0.3, chlorophyll: 0.5 };
+    // 沿岸: 高濁度。ミー散乱が支配的 → 緑がかる
+    case "coastal":
+      return { rayleigh: 0.6, mie: 1.2, chlorophyll: 1.5 };
   }
 }
 
@@ -90,52 +105,22 @@ export function getSkyColors(
 }
 
 /**
- * 水中の背景色
+ * 指定深度での水中背景色をBeer-Lambert法 + 散乱モデルで物理計算する
+ *
+ * 太陽光が水面から depthMeters まで到達した時点での
+ * 残存スペクトルをCIE XYZ → sRGBに変換して色を返す。
  */
-export function getUnderwaterColors(
+export function getWaterColorAtDepth(
+  depthMeters: number,
   ocean: OceanType,
   timeOfDay: TimeOfDay,
   weather: Weather
-): {
-  shallowTop: [number, number, number];
-  shallowBottom: [number, number, number];
-  deepTop: [number, number, number];
-  deepBottom: [number, number, number];
-} {
+): [number, number, number] {
+  const absorptionMul = getOceanAbsorptionMultiplier(ocean);
   const lightMul = getTimeOfDayLightMultiplier(timeOfDay) * getWeatherLightMultiplier(weather);
+  const scatter = getOceanScatterParams(ocean);
 
-  const bases: Record<OceanType, {
-    shallowTop: [number, number, number];
-    shallowBottom: [number, number, number];
-  }> = {
-    tropical: {
-      shallowTop: [15, 160, 210],
-      shallowBottom: [5, 80, 140],
-    },
-    temperate: {
-      shallowTop: [26, 143, 196],
-      shallowBottom: [10, 61, 107],
-    },
-    coastal: {
-      shallowTop: [30, 120, 100],
-      shallowBottom: [15, 55, 50],
-    },
-  };
-
-  const base = bases[ocean];
-
-  const applyLight = (c: [number, number, number]): [number, number, number] => [
-    Math.round(c[0] * lightMul),
-    Math.round(c[1] * lightMul),
-    Math.round(c[2] * lightMul),
-  ];
-
-  return {
-    shallowTop: applyLight(base.shallowTop),
-    shallowBottom: applyLight(base.shallowBottom),
-    deepTop: [Math.round(6 * lightMul), Math.round(20 * lightMul), Math.round(45 * lightMul)],
-    deepBottom: [Math.round(2 * lightMul), Math.round(8 * lightMul), Math.round(20 * lightMul)],
-  };
+  return getPhysicalWaterColor(depthMeters, absorptionMul, lightMul, scatter);
 }
 
 export const OCEAN_LABELS: Record<OceanType, string> = {

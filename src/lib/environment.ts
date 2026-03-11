@@ -1,5 +1,5 @@
-import { OceanType, Weather, TimeOfDay, ViewDirection } from "@/types";
-import { getPhysicalWaterColor, getUpwardWaterColor, ScatterParams } from "./colorScience";
+import { OceanType, TimeOfDay } from "@/types";
+import { getPhysicalWaterColor, ScatterParams } from "./colorScience";
 
 /**
  * 海のタイプごとの吸収係数の倍率
@@ -12,8 +12,6 @@ export function getOceanAbsorptionMultiplier(ocean: OceanType): number {
     case "tropical": return 0.7;
     case "temperate": return 1.0;
     case "coastal": return 1.8;
-    case "redtide": return 2.5;    // 赤潮: 高濁度
-    case "bluetide": return 1.3;   // 青潮: やや濁り
   }
 }
 
@@ -36,76 +34,66 @@ export function getOceanScatterParams(ocean: OceanType): ScatterParams {
     // 沿岸: 高濁度。ミー散乱が支配的 → 緑がかる
     case "coastal":
       return { rayleigh: 0.6, mie: 1.2, chlorophyll: 1.5 };
-    // 赤潮: 渦鞭毛藻の大量発生。ペリジニン(カロテノイド)が青緑を吸収 → 赤褐色
-    case "redtide":
-      return { rayleigh: 0.4, mie: 1.8, chlorophyll: 3.0, carotenoid: 2.0 };
-    // 青潮: 硫化水素由来の硫黄コロイド。微粒子散乱 → 乳白色の青緑
-    case "bluetide":
-      return { rayleigh: 1.0, mie: 0.8, chlorophyll: 0.2, sulfur: 3.0 };
   }
 }
 
 /**
- * 天気による光の透過率
+ * 光量スライダーの値から光の強さの倍率を計算
+ *
+ * lightIntensity: 0.0（夜）〜 1.0（夏の日中）
+ * 光量0で完全な闇にはならない（月明かり等）ため最小値は0.02
  */
-export function getWeatherLightMultiplier(weather: Weather): number {
-  switch (weather) {
-    case "clear": return 1.0;
-    case "cloudy": return 0.5;
-    case "rainy": return 0.3;
-  }
-}
-
-/**
- * 時間帯による光の強さ
- */
-export function getTimeOfDayLightMultiplier(timeOfDay: TimeOfDay): number {
-  switch (timeOfDay) {
-    case "day": return 1.0;
-    case "sunset": return 0.5;
-    case "night": return 0.08;
-  }
+export function getLightMultiplier(lightIntensity: number): number {
+  // 最小0.02（夜間の微光）〜 最大1.0（夏の日中）
+  return 0.02 + lightIntensity * 0.98;
 }
 
 /**
  * 空の色
+ * lightIntensityから時間帯相当の空色を推定する
  */
 export function getSkyColors(
-  timeOfDay: TimeOfDay,
-  weather: Weather
+  lightIntensity: number
 ): { top: string; mid: string; bottom: string } {
-  if (timeOfDay === "night") {
+  if (lightIntensity < 0.1) {
+    // 夜
     return {
       top: "#0a0a1a",
       mid: "#0f1028",
       bottom: "#1a1a30",
     };
   }
-  if (timeOfDay === "sunset") {
-    if (weather === "rainy") {
-      return { top: "#3a2a30", mid: "#5a3a40", bottom: "#7a5a50" };
-    }
-    if (weather === "cloudy") {
-      return { top: "#4a3a45", mid: "#8a5a50", bottom: "#c08060" };
-    }
+  if (lightIntensity < 0.4) {
+    // 夕方・薄暗い
+    const t = (lightIntensity - 0.1) / 0.3;
     return {
-      top: "#2a1a50",
-      mid: "#c05030",
-      bottom: "#f0a040",
+      top: interpolateColor("#0a0a1a", "#2a1a50", t),
+      mid: interpolateColor("#0f1028", "#c05030", t),
+      bottom: interpolateColor("#1a1a30", "#f0a040", t),
     };
   }
-  // day
-  if (weather === "rainy") {
-    return { top: "#4a5060", mid: "#6a7080", bottom: "#8a9098" };
-  }
-  if (weather === "cloudy") {
-    return { top: "#5a6a80", mid: "#8a9aaa", bottom: "#aab8c8" };
-  }
+  // 日中
   return {
     top: "#4a90d9",
     mid: "#87CEEB",
     bottom: "#b0e0f0",
   };
+}
+
+/**
+ * 2つの16進カラー間を線形補間する
+ */
+function interpolateColor(c1: string, c2: string, t: number): string {
+  const r1 = parseInt(c1.slice(1, 3), 16);
+  const g1 = parseInt(c1.slice(3, 5), 16);
+  const b1 = parseInt(c1.slice(5, 7), 16);
+  const r2 = parseInt(c2.slice(1, 3), 16);
+  const g2 = parseInt(c2.slice(3, 5), 16);
+  const b2 = parseInt(c2.slice(5, 7), 16);
+  const r = Math.round(r1 + (r2 - r1) * t);
+  const g = Math.round(g1 + (g2 - g1) * t);
+  const b = Math.round(b1 + (b2 - b1) * t);
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
 /**
@@ -117,17 +105,12 @@ export function getSkyColors(
 export function getWaterColorAtDepth(
   depthMeters: number,
   ocean: OceanType,
-  timeOfDay: TimeOfDay,
-  weather: Weather,
-  viewDirection: ViewDirection = "horizontal"
+  lightIntensity: number
 ): [number, number, number] {
   const absorptionMul = getOceanAbsorptionMultiplier(ocean);
-  const lightMul = getTimeOfDayLightMultiplier(timeOfDay) * getWeatherLightMultiplier(weather);
+  const lightMul = getLightMultiplier(lightIntensity);
   const scatter = getOceanScatterParams(ocean);
 
-  if (viewDirection === "upward") {
-    return getUpwardWaterColor(depthMeters, absorptionMul, lightMul, scatter);
-  }
   return getPhysicalWaterColor(depthMeters, absorptionMul, lightMul, scatter);
 }
 
@@ -135,23 +118,10 @@ export const OCEAN_LABELS: Record<OceanType, string> = {
   tropical: "熱帯",
   temperate: "温帯",
   coastal: "沿岸",
-  redtide: "赤潮",
-  bluetide: "青潮",
-};
-
-export const WEATHER_LABELS: Record<Weather, string> = {
-  clear: "晴れ",
-  cloudy: "曇り",
-  rainy: "雨",
 };
 
 export const TIME_LABELS: Record<TimeOfDay, string> = {
   day: "日中",
   sunset: "夕方",
   night: "夜",
-};
-
-export const VIEW_LABELS: Record<ViewDirection, string> = {
-  horizontal: "水平",
-  upward: "上空",
 };

@@ -5,14 +5,13 @@ import { WAVELENGTH_DATA } from "@/lib/constants";
 import { getSpectrumColorAtDepth, colorToCSS } from "@/lib/colorScience";
 import {
   getOceanAbsorptionMultiplier,
-  getWeatherLightMultiplier,
-  getTimeOfDayLightMultiplier,
+  getLightMultiplier,
 } from "@/lib/environment";
 
 export default function ColorSpectrum() {
   const { currentDepth, environment } = useDepth();
   const absorptionMul = getOceanAbsorptionMultiplier(environment.ocean);
-  const lightMul = getWeatherLightMultiplier(environment.weather) * getTimeOfDayLightMultiplier(environment.timeOfDay);
+  const lightMul = getLightMultiplier(environment.lightIntensity);
 
   return (
     <div
@@ -21,8 +20,8 @@ export default function ColorSpectrum() {
         position: "fixed",
         left: "12px",
         bottom: "12px",
-        // 右のゲージ(72px)と余白を確保して見切れ防止
-        right: "80px",
+        // 右のゲージ(82px)と余白を確保して見切れ防止
+        right: "90px",
         zIndex: 10,
         display: "flex",
         flexDirection: "row",

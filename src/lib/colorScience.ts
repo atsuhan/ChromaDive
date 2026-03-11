@@ -236,7 +236,11 @@ export function getPhysicalWaterColor(
   const depthDarkening = Math.exp(-0.02 * depthMeters);
   // 硫黄コロイドは水を乳白色にする（明度を上げ、彩度を下げる）
   const sulfurBrightBoost = 1.0 + sulfur * 0.3;
-  const targetY = baseBrightness * depthDarkening * lightMultiplier * sulfurBrightBoost;
+  // 水面付近で光量が高い場合、太陽光の後方散乱と水面反射で
+  // 水が白っぽく明るく見える効果を追加
+  // 浅い所ほど、光量が高いほど効果が大きい
+  const surfaceBrightening = Math.exp(-0.15 * depthMeters) * Math.max(0, lightMultiplier - 0.3) * 0.6;
+  const targetY = baseBrightness * depthDarkening * lightMultiplier * sulfurBrightBoost + surfaceBrightening;
 
   if (Y > 1e-8) {
     const normalizer = targetY / Y;
@@ -258,10 +262,24 @@ export function getPhysicalWaterColor(
       : 1.055 * Math.pow(clamped, 1 / 2.4) - 0.055;
   };
 
+  let rOut = toSRGB(rLin) * 255;
+  let gOut = toSRGB(gLin) * 255;
+  let bOut = toSRGB(bLin) * 255;
+
+  // 水面付近の白っぽさ: 日中・浅場で太陽光の後方散乱により
+  // 水色が白方向にシフトする現象を再現
+  // surfaceBrighteningの強さに応じて白(255)に向けてブレンド
+  const whiteBlend = Math.min(1, surfaceBrightening * 0.8);
+  if (whiteBlend > 0.01) {
+    rOut = rOut + (255 - rOut) * whiteBlend;
+    gOut = gOut + (255 - gOut) * whiteBlend;
+    bOut = bOut + (255 - bOut) * whiteBlend;
+  }
+
   return [
-    Math.max(0, Math.min(255, Math.round(toSRGB(rLin) * 255))),
-    Math.max(0, Math.min(255, Math.round(toSRGB(gLin) * 255))),
-    Math.max(0, Math.min(255, Math.round(toSRGB(bLin) * 255))),
+    Math.max(0, Math.min(255, Math.round(rOut))),
+    Math.max(0, Math.min(255, Math.round(gOut))),
+    Math.max(0, Math.min(255, Math.round(bOut))),
   ];
 }
 

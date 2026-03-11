@@ -5,13 +5,12 @@ import ColorSpectrum from "@/components/ColorSpectrum";
 import DepthGauge from "@/components/DepthGauge";
 import ImageViewer from "@/components/ImageViewer";
 import EnvironmentPanel from "@/components/EnvironmentPanel";
-import { TOTAL_SCROLL_HEIGHT } from "@/lib/constants";
 
 export default function Home() {
   return (
     <DepthProvider>
-      {/* スクロール用の高さを確保するコンテナ */}
-      <div style={{ height: `${TOTAL_SCROLL_HEIGHT}px`, position: "relative" }}>
+      {/* スクロール不要の固定レイアウト — 深度はスライダーで制御 */}
+      <div style={{ height: "100vh", position: "relative", overflow: "hidden" }}>
         {/* 説明テキスト */}
         <p style={{
           position: "fixed",

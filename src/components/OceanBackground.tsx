@@ -5,8 +5,7 @@ import { MAX_DEPTH } from "@/lib/constants";
 import {
   getSkyColors,
   getWaterColorAtDepth,
-  getWeatherLightMultiplier,
-  getTimeOfDayLightMultiplier,
+  getLightMultiplier,
 } from "@/lib/environment";
 import { useMemo } from "react";
 
@@ -14,12 +13,12 @@ export default function OceanBackground() {
   const { currentDepth, environment } = useDepth();
 
   const depthRatio = currentDepth / MAX_DEPTH;
-  const lightMul = getWeatherLightMultiplier(environment.weather) * getTimeOfDayLightMultiplier(environment.timeOfDay);
+  const lightMul = getLightMultiplier(environment.lightIntensity);
 
   const skyOpacity = Math.max(0, 1 - currentDepth / 5);
   const lightRayOpacity = Math.max(0, 1 - currentDepth / 100) * 0.5 * lightMul;
 
-  const sky = getSkyColors(environment.timeOfDay, environment.weather);
+  const sky = getSkyColors(environment.lightIntensity);
 
   // 画面上部 = 現在の深度、画面下部 = 現在の深度 + 見通し距離
   // 実際の水中では上を見ると浅い色、下を見ると深い色が見える
@@ -27,19 +26,27 @@ export default function OceanBackground() {
   const bgTop = useMemo(
     () => getWaterColorAtDepth(
       Math.max(0, currentDepth - viewRange * 0.3),
-      environment.ocean, environment.timeOfDay, environment.weather,
-      environment.viewDirection
+      environment.ocean, environment.lightIntensity
     ),
-    [currentDepth, viewRange, environment.ocean, environment.timeOfDay, environment.weather, environment.viewDirection]
+    [currentDepth, viewRange, environment.ocean, environment.lightIntensity]
   );
   const bgBottom = useMemo(
     () => getWaterColorAtDepth(
       currentDepth + viewRange * 0.7,
-      environment.ocean, environment.timeOfDay, environment.weather,
-      environment.viewDirection
+      environment.ocean, environment.lightIntensity
     ),
-    [currentDepth, viewRange, environment.ocean, environment.timeOfDay, environment.weather, environment.viewDirection]
+    [currentDepth, viewRange, environment.ocean, environment.lightIntensity]
   );
+
+  // 日中の水面付近は太陽光の散乱・反射で白っぽくなる
+  // 光量が高く、水面に近いほど白いオーバーレイを加える
+  const surfaceWhiteness = useMemo(() => {
+    // 水面から5m以内で光量が高い場合に白っぽさを加える
+    const depthFade = Math.max(0, 1 - currentDepth / 8);
+    // 光量が0.5以上で白っぽさが出始め、1.0で最大
+    const lightFade = Math.max(0, (environment.lightIntensity - 0.3) / 0.7);
+    return depthFade * lightFade * 0.45;
+  }, [currentDepth, environment.lightIntensity]);
 
   const floorOpacity = Math.max(0, (currentDepth - 175) / 25);
 
@@ -59,6 +66,18 @@ export default function OceanBackground() {
           rgb(${bgBottom.join(",")}) 100%)`,
         transition: "background 0.1s ease",
       }} />
+
+      {/* 水面付近の白っぽさ — 日中の太陽光散乱・反射による */}
+      {surfaceWhiteness > 0.01 && (
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          background: "linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0.5) 30%, transparent 70%)",
+          opacity: surfaceWhiteness,
+          transition: "opacity 0.15s ease",
+          pointerEvents: "none",
+        }} />
+      )}
 
       {/* 空（水面上） */}
       <div style={{

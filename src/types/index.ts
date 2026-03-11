@@ -6,22 +6,19 @@ export interface WavelengthInfo {
   absorptionCoefficient: number;
 }
 
-export type OceanType = "tropical" | "temperate" | "coastal" | "redtide" | "bluetide";
-export type Weather = "clear" | "cloudy" | "rainy";
+export type OceanType = "tropical" | "temperate" | "coastal";
 export type TimeOfDay = "day" | "sunset" | "night";
-
-/**
- * カメラ方向
- * horizontal: 水平方向（散乱光 = 海の色）
- * upward: 上空方向（透過光 = 水面からの光）
- */
-export type ViewDirection = "horizontal" | "upward";
 
 export interface EnvironmentSettings {
   ocean: OceanType;
-  weather: Weather;
   timeOfDay: TimeOfDay;
-  viewDirection: ViewDirection;
+  /**
+   * 光量（0.0〜1.0）
+   * 1.0 = 夏の日中（最大光量）
+   * 0.0 = 夜間（最小光量）
+   * 天気や時間帯の代わりに、光の強さを直接制御する
+   */
+  lightIntensity: number;
 }
 
 export interface DepthContextType {

@@ -1,19 +1,11 @@
 "use client";
 
 import { useDepth } from "./DepthProvider";
-import { OceanType, Weather, TimeOfDay, ViewDirection } from "@/types";
-import {
-  OCEAN_LABELS,
-  WEATHER_LABELS,
-  TIME_LABELS,
-  VIEW_LABELS,
-} from "@/lib/environment";
+import { OceanType } from "@/types";
+import { OCEAN_LABELS } from "@/lib/environment";
 import { useState } from "react";
 
-const OCEAN_OPTIONS: OceanType[] = ["tropical", "temperate", "coastal", "redtide", "bluetide"];
-const WEATHER_OPTIONS: Weather[] = ["clear", "cloudy", "rainy"];
-const TIME_OPTIONS: TimeOfDay[] = ["day", "sunset", "night"];
-const VIEW_OPTIONS: ViewDirection[] = ["horizontal", "upward"];
+const OCEAN_OPTIONS: OceanType[] = ["tropical", "temperate", "coastal"];
 
 export default function EnvironmentPanel() {
   const { environment, setEnvironment } = useDepth();
@@ -78,7 +70,7 @@ export default function EnvironmentPanel() {
             display: "flex",
             flexDirection: "column",
             gap: "12px",
-            minWidth: "160px",
+            minWidth: "180px",
           }}
         >
           {/* 海のタイプ */}
@@ -90,32 +82,67 @@ export default function EnvironmentPanel() {
             onChange={(v) => update({ ocean: v as OceanType })}
           />
 
-          {/* 天気 */}
-          <OptionGroup
-            label="天気"
-            options={WEATHER_OPTIONS}
-            labels={WEATHER_LABELS}
-            value={environment.weather}
-            onChange={(v) => update({ weather: v as Weather })}
-          />
-
-          {/* 時間帯 */}
-          <OptionGroup
-            label="時間帯"
-            options={TIME_OPTIONS}
-            labels={TIME_LABELS}
-            value={environment.timeOfDay}
-            onChange={(v) => update({ timeOfDay: v as TimeOfDay })}
-          />
-
-          {/* カメラ方向 */}
-          <OptionGroup
-            label="カメラ方向"
-            options={VIEW_OPTIONS}
-            labels={VIEW_LABELS}
-            value={environment.viewDirection}
-            onChange={(v) => update({ viewDirection: v as ViewDirection })}
-          />
+          {/* 光量スライダー */}
+          <div>
+            <div style={{
+              fontSize: "9px",
+              fontWeight: 500,
+              color: "rgba(200, 230, 255, 0.4)",
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+              marginBottom: "5px",
+            }}>
+              光量
+            </div>
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+            }}>
+              <span style={{
+                fontSize: "10px",
+                color: "rgba(200, 230, 255, 0.35)",
+                whiteSpace: "nowrap",
+              }}>
+                🌙
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={Math.round(environment.lightIntensity * 100)}
+                onChange={(e) => update({ lightIntensity: Number(e.target.value) / 100 })}
+                style={{
+                  flex: 1,
+                  height: "4px",
+                  appearance: "none",
+                  WebkitAppearance: "none",
+                  background: `linear-gradient(to right,
+                    rgba(30, 40, 80, 0.8) 0%,
+                    rgba(100, 140, 200, 0.6) 40%,
+                    rgba(255, 230, 180, 0.8) 100%)`,
+                  borderRadius: "2px",
+                  outline: "none",
+                  cursor: "pointer",
+                }}
+              />
+              <span style={{
+                fontSize: "10px",
+                color: "rgba(200, 230, 255, 0.35)",
+                whiteSpace: "nowrap",
+              }}>
+                ☀️
+              </span>
+            </div>
+            <div style={{
+              fontSize: "9px",
+              color: "rgba(200, 230, 255, 0.35)",
+              textAlign: "center",
+              marginTop: "3px",
+            }}>
+              {Math.round(environment.lightIntensity * 100)}%
+            </div>
+          </div>
         </div>
       )}
     </div>

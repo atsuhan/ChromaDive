@@ -5,8 +5,7 @@ import { createImageProcessor, ImageProcessor } from "@/lib/imageProcessor";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   getOceanAbsorptionMultiplier,
-  getWeatherLightMultiplier,
-  getTimeOfDayLightMultiplier,
+  getLightMultiplier,
 } from "@/lib/environment";
 import { LureColorType } from "@/types";
 
@@ -19,7 +18,7 @@ const LURE_COLOR_OPTIONS: { value: LureColorType; label: string; desc: string }[
 export default function ImageViewer() {
   const { currentDepth, environment } = useDepth();
   const absorptionMul = getOceanAbsorptionMultiplier(environment.ocean);
-  const lightMul = getWeatherLightMultiplier(environment.weather) * getTimeOfDayLightMultiplier(environment.timeOfDay);
+  const lightMul = getLightMultiplier(environment.lightIntensity);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const processorRef = useRef<ImageProcessor | null>(null);
   const rafRef = useRef<number>(0);
@@ -115,7 +114,7 @@ export default function ImageViewer() {
         position: "fixed",
         top: "36px",
         left: "12px",
-        right: "72px",
+        right: "82px",
         bottom: "100px",
         zIndex: 10,
         display: "flex",

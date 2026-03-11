@@ -1,12 +1,10 @@
-import { transformColorAtDepth, applyUVFluorescence, applyGlowEffect } from "./colorScience";
-import { LureColorType } from "@/types";
+import { transformColorAtDepth } from "./colorScience";
 
 export interface ImageProcessor {
   applyDepthFilter(
     depth: number,
     absorptionMultiplier?: number,
     lightMultiplier?: number,
-    lureColorType?: LureColorType
   ): ImageData;
   removeBackground(tolerance?: number): void;
   restoreBackground(): void;
@@ -154,9 +152,8 @@ export function createImageProcessor(
       depth: number,
       absorptionMultiplier: number = 1.0,
       lightMultiplier: number = 1.0,
-      lureColorType: LureColorType = "none"
     ): ImageData {
-      const key = `${Math.round(depth)}_${absorptionMultiplier.toFixed(2)}_${lightMultiplier.toFixed(2)}_${lureColorType}_${alphaMask ? "masked" : "full"}`;
+      const key = `${Math.round(depth)}_${absorptionMultiplier.toFixed(2)}_${lightMultiplier.toFixed(2)}_${alphaMask ? "masked" : "full"}`;
       if (key === cachedKey && cachedResult) {
         return cachedResult;
       }
@@ -177,18 +174,11 @@ export function createImageProcessor(
           continue;
         }
 
-        // 通常の深度フィルタ
-        let [r, g, b] = transformColorAtDepth(
+        // 深度フィルタ
+        const [r, g, b] = transformColorAtDepth(
           src[i], src[i + 1], src[i + 2],
           depth, absorptionMultiplier, lightMultiplier
         );
-
-        // UV/グロー効果の適用
-        if (lureColorType === "uv") {
-          [r, g, b] = applyUVFluorescence(r, g, b, depth, absorptionMultiplier, lightMultiplier);
-        } else if (lureColorType === "glow") {
-          [r, g, b] = applyGlowEffect(r, g, b, depth, absorptionMultiplier, lightMultiplier);
-        }
 
         dst[i] = r;
         dst[i + 1] = g;

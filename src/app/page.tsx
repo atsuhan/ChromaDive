@@ -9,8 +9,8 @@ import EnvironmentPanel from "@/components/EnvironmentPanel";
 export default function Home() {
   return (
     <DepthProvider>
-      {/* スクロール不要の固定レイアウト — 深度はスライダーで制御 */}
-      <div style={{ height: "100vh", position: "relative", overflow: "hidden" }}>
+      {/* 深度はスライダーで制御。コンテンツが溢れた場合はスクロール可能 */}
+      <div style={{ minHeight: "100vh", position: "relative" }}>
         {/* 説明テキスト */}
         <p style={{
           position: "fixed",

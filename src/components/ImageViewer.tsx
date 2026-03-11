@@ -7,13 +7,6 @@ import {
   getOceanAbsorptionMultiplier,
   getLightMultiplier,
 } from "@/lib/environment";
-import { LureColorType } from "@/types";
-
-const LURE_COLOR_OPTIONS: { value: LureColorType; label: string; desc: string }[] = [
-  { value: "none", label: "通常", desc: "標準カラー" },
-  { value: "uv", label: "UV", desc: "紫外線蛍光" },
-  { value: "glow", label: "グロー", desc: "蓄光" },
-];
 
 export default function ImageViewer() {
   const { currentDepth, environment } = useDepth();
@@ -24,7 +17,6 @@ export default function ImageViewer() {
   const rafRef = useRef<number>(0);
   const [hasImage, setHasImage] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
-  const [lureColorType, setLureColorType] = useState<LureColorType>("none");
   const [bgRemoved, setBgRemoved] = useState(false);
 
   const renderCanvas = useCallback(() => {
@@ -35,10 +27,10 @@ export default function ImageViewer() {
       const canvas = canvasRef.current!;
       const ctx = canvas.getContext("2d")!;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const filtered = processor.applyDepthFilter(currentDepth, absorptionMul, lightMul, lureColorType);
+      const filtered = processor.applyDepthFilter(currentDepth, absorptionMul, lightMul);
       ctx.putImageData(filtered, 0, 0);
     });
-  }, [currentDepth, absorptionMul, lightMul, lureColorType]);
+  }, [currentDepth, absorptionMul, lightMul]);
 
   // 深度・環境・カラータイプ変更時にフィルタを適用
   useEffect(() => {
@@ -58,7 +50,7 @@ export default function ImageViewer() {
 
       const ctx = canvas.getContext("2d")!;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const filtered = processor.applyDepthFilter(currentDepth, absorptionMul, lightMul, lureColorType);
+      const filtered = processor.applyDepthFilter(currentDepth, absorptionMul, lightMul);
       ctx.putImageData(filtered, 0, 0);
 
       setHasImage(true);
@@ -66,7 +58,7 @@ export default function ImageViewer() {
       URL.revokeObjectURL(url);
     };
     img.src = url;
-  }, [currentDepth, absorptionMul, lightMul, lureColorType]);
+  }, [currentDepth, absorptionMul, lightMul]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -86,7 +78,6 @@ export default function ImageViewer() {
     processorRef.current = null;
     setHasImage(false);
     setBgRemoved(false);
-    setLureColorType("none");
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext("2d")!;
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -112,7 +103,7 @@ export default function ImageViewer() {
       data-ui-panel
       style={{
         position: "fixed",
-        top: "36px",
+        top: "90px",
         left: "12px",
         right: "82px",
         bottom: "100px",
@@ -250,37 +241,6 @@ export default function ImageViewer() {
             </svg>
             {bgRemoved ? "背景復元" : "背景除去"}
           </ToolButton>
-
-          {/* 区切り */}
-          <div style={{
-            width: "1px",
-            height: "20px",
-            background: "rgba(200, 230, 255, 0.1)",
-          }} />
-
-          {/* ルアーカラータイプ */}
-          {LURE_COLOR_OPTIONS.map((opt) => (
-            <ToolButton
-              key={opt.value}
-              active={lureColorType === opt.value}
-              onClick={() => setLureColorType(opt.value)}
-              title={opt.desc}
-            >
-              {opt.value === "uv" && (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="5" />
-                  <path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83" />
-                </svg>
-              )}
-              {opt.value === "glow" && (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2z" />
-                  <path d="M8 21h8M9 17v4M15 17v4" />
-                </svg>
-              )}
-              {opt.label}
-            </ToolButton>
-          ))}
 
           {/* 区切り */}
           <div style={{

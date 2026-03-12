@@ -18,17 +18,19 @@ export default function EnvironmentPanel() {
       data-ui-panel
       style={{
         position: "fixed",
-        top: "36px",
-        left: "12px",
+        top: "8px",
+        left: "8px",
+        right: "60px",
         zIndex: 20,
         background: "rgba(0, 20, 40, 0.6)",
         backdropFilter: "blur(10px)",
         border: "1px solid rgba(200, 230, 255, 0.12)",
         borderRadius: "10px",
-        padding: "10px 14px",
+        padding: "8px 10px",
         display: "flex",
         alignItems: "center",
-        gap: "16px",
+        flexWrap: "wrap",
+        gap: "8px 12px",
       }}
     >
       {/* 海域選択 */}
@@ -75,7 +77,7 @@ export default function EnvironmentPanel() {
       }} />
 
       {/* 光量スライダー */}
-      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
         <span style={{
           fontSize: "9px",
           fontWeight: 500,
@@ -97,6 +99,7 @@ export default function EnvironmentPanel() {
           onChange={(e) => update({ lightIntensity: Number(e.target.value) / 100 })}
           style={{
             width: "80px",
+            minWidth: "50px",
             height: "4px",
             appearance: "none",
             WebkitAppearance: "none",
@@ -107,6 +110,7 @@ export default function EnvironmentPanel() {
             borderRadius: "2px",
             outline: "none",
             cursor: "pointer",
+            flex: "1 1 50px",
           }}
         />
         <span style={{ fontSize: "10px", color: "rgba(200, 230, 255, 0.35)" }}>

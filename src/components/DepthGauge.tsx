@@ -16,7 +16,7 @@ export default function DepthGauge() {
   const trackRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const depthFromMouseEvent = useCallback((clientY: number) => {
+  const depthFromClientY = useCallback((clientY: number) => {
     if (!trackRef.current) return 0;
     const rect = trackRef.current.getBoundingClientRect();
     const ratio = Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
@@ -25,10 +25,10 @@ export default function DepthGauge() {
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     setIsDragging(true);
-    setDepth(depthFromMouseEvent(e.clientY));
+    setDepth(depthFromClientY(e.clientY));
 
     const handleMouseMove = (e: MouseEvent) => {
-      setDepth(depthFromMouseEvent(e.clientY));
+      setDepth(depthFromClientY(e.clientY));
     };
     const handleMouseUp = () => {
       setIsDragging(false);
@@ -37,7 +37,27 @@ export default function DepthGauge() {
     };
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
-  }, [depthFromMouseEvent, setDepth]);
+  }, [depthFromClientY, setDepth]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    setIsDragging(true);
+    const touch = e.touches[0];
+    setDepth(depthFromClientY(touch.clientY));
+
+    const handleTouchMove = (e: TouchEvent) => {
+      // ゲージ操作中はページスクロールを防止
+      e.preventDefault();
+      const touch = e.touches[0];
+      setDepth(depthFromClientY(touch.clientY));
+    };
+    const handleTouchEnd = () => {
+      setIsDragging(false);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+    };
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd);
+  }, [depthFromClientY, setDepth]);
 
   const markerPosition = (currentDepth / MAX_DEPTH) * 100;
 
@@ -80,6 +100,7 @@ export default function DepthGauge() {
       <div
         ref={trackRef}
         onMouseDown={handleMouseDown}
+        onTouchStart={handleTouchStart}
         style={{
           position: "relative",
           width: "32px",
@@ -87,6 +108,7 @@ export default function DepthGauge() {
           cursor: "pointer",
           display: "flex",
           justifyContent: "center",
+          touchAction: "none",
         }}
       >
         <div style={{

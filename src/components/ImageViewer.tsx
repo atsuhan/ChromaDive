@@ -103,9 +103,10 @@ export default function ImageViewer() {
       data-ui-panel
       style={{
         position: "fixed",
-        top: "90px",
-        left: "12px",
-        right: "82px",
+        /* 操作パネルの下に配置。モバイルでパネルが折り返す場合も余裕をもたせる */
+        top: "56px",
+        left: "16px",
+        right: "72px",
         bottom: "100px",
         zIndex: 10,
         display: "flex",
@@ -136,6 +137,8 @@ export default function ImageViewer() {
           backdropFilter: "blur(4px)",
           transition: "border-color 0.2s, background 0.2s",
           overflow: "hidden",
+          /* スマホでも周囲に余白を確保するためパディングを追加 */
+          padding: "8px",
         }}
       >
         {/* チェッカーボード背景（背景除去時に透明部分を可視化） */}

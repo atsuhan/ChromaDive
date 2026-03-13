@@ -103,11 +103,11 @@ export default function ImageViewer() {
       data-ui-panel
       style={{
         position: "fixed",
-        /* 操作パネルの下に配置。モバイルでパネルが折り返す場合も余裕をもたせる */
-        top: "56px",
+        /* 操作パネルの下に配置。下部カラーパレットとの余白と同程度のスペースを確保 */
+        top: "64px",
         left: "16px",
         right: "72px",
-        bottom: "100px",
+        bottom: "120px",
         zIndex: 10,
         display: "flex",
         flexDirection: "column",

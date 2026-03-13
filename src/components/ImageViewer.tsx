@@ -103,8 +103,8 @@ export default function ImageViewer() {
       data-ui-panel
       style={{
         position: "fixed",
-        /* 操作パネルの下に配置。下部カラーパレットとの余白と同程度のスペースを確保 */
-        top: "64px",
+        /* 操作パネル(2段)の下に配置。下部カラーパレットとの余白と同程度のスペースを確保 */
+        top: "80px",
         left: "16px",
         right: "72px",
         bottom: "120px",

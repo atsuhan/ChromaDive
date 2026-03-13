@@ -77,8 +77,14 @@ export function transformColorAtDepth(
     calculateAbsorption(490, depthMeters, absorptionMultiplier) * 0.3
   );
 
-  const ambientDarkening = Math.exp(-0.005 * depthMeters);
-  const blueScatter = Math.min(20, depthMeters * 0.04) * ambientDarkening;
+  // Beer-Lambert吸収が既に波長別の光減衰を正確にモデル化しているため、
+  // 追加の指数減衰(ambientDarkening)は不要。
+  // 以前は exp(-0.005 * depth) を掛けていたが、吸収と二重計上になり
+  // 深場が不自然に暗くなっていた（100m以上で白が視認できなくなる問題）。
+
+  // 環境散乱光: 水中の残存光（青緑系）が背景として存在する量
+  // Beer-Lambert吸収後の青チャネル透過率を基準にする
+  const blueScatter = Math.min(30, depthMeters * 0.06) * bAbsorption * lightMultiplier;
 
   // --- 散乱光の反射による明るい色・白の残存効果 ---
   //
@@ -95,15 +101,17 @@ export function transformColorAtDepth(
 
   // 水中の残存散乱光（青緑系）が物体表面で反射される量
   // 明るい色ほど散乱光をよく反射する。白が最も強い。
-  const scatterReflection = luminance * ambientDarkening * lightMultiplier;
+  // 深海での環境光は青が支配的なので、青の透過率を散乱光の強さの基準にする
+  const scatterReflection = luminance * lightMultiplier;
   // 深度に応じた散乱光の色（青緑がかった光）
-  const scatterR = Math.min(40, depthMeters * 0.08) * scatterReflection;
-  const scatterG = Math.min(60, depthMeters * 0.15) * scatterReflection;
-  const scatterB = Math.min(80, depthMeters * 0.25) * scatterReflection;
+  // 赤は水中でほぼ消失するが、緑・青は残存して散乱光の色を決める
+  const scatterR = Math.min(60, depthMeters * 0.12) * bAbsorption * 0.15 * scatterReflection;
+  const scatterG = Math.min(90, depthMeters * 0.25) * bAbsorption * 0.6 * scatterReflection;
+  const scatterB = Math.min(120, depthMeters * 0.4) * bAbsorption * scatterReflection;
 
-  const newR = Math.round(r * rAbsorption * ambientDarkening * lightMultiplier + scatterR);
-  const newG = Math.round(g * gAbsorption * ambientDarkening * lightMultiplier + scatterG);
-  const newB = Math.round(b * bAbsorption * ambientDarkening * lightMultiplier + blueScatter + scatterB);
+  const newR = Math.round(r * rAbsorption * lightMultiplier + scatterR);
+  const newG = Math.round(g * gAbsorption * lightMultiplier + scatterG);
+  const newB = Math.round(b * bAbsorption * lightMultiplier + blueScatter + scatterB);
 
   return [
     Math.max(0, Math.min(255, newR)),
@@ -167,8 +175,10 @@ export function getPhysicalWaterColor(
   let X = 0, Y = 0, Z = 0;
 
   // この深度で利用可能な光量（太陽光が水面からここまで到達する分）
-  const availableLightFade = Math.exp(-0.008 * depthMeters);
-  const energyBudget = availableLightFade * lightMultiplier;
+  // 散乱光のエネルギー源は各波長のBeer-Lambert透過率で既に計算されるため、
+  // ここでは光源の強さ（天候・時間帯）のみを反映する。
+  // 以前の exp(-0.008 * depth) は吸収と二重計上になっていたため除去。
+  const energyBudget = lightMultiplier;
 
   // 色素による追加吸収を計算するヘルパー
   const pigmentAbsorption = (nm: number): number => {
@@ -248,7 +258,8 @@ export function getPhysicalWaterColor(
   // 深度に応じた目標輝度に合わせることで
   // 浅場=豊かで飽和した色、深場=暗い色を実現する。
   const baseBrightness = 0.18;
-  const depthDarkening = Math.exp(-0.02 * depthMeters);
+  // 深場の水色の明度減衰。スペクトル計算が吸収を含むため穏やかな係数でよい
+  const depthDarkening = Math.exp(-0.012 * depthMeters);
   // 硫黄コロイドは水を乳白色にする（明度を上げ、彩度を下げる）
   const sulfurBrightBoost = 1.0 + sulfur * 0.3;
   // 水面付近で光量が高い場合、太陽光の後方散乱と水面反射で

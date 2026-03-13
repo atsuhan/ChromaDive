@@ -11,11 +11,8 @@ export default function EnvironmentPanel() {
   };
 
   // FUスライダーのグラデーション背景を生成
-  // 21色を等間隔に配置してCSS linear-gradientにする
-  const fuGradientStops = FU_COLORS.map((c, i) => {
-    const pct = (i / (FU_COLORS.length - 1)) * 100;
-    return `rgb(${c[0]},${c[1]},${c[2]}) ${pct}%`;
-  }).join(", ");
+  // 海水の色味を表現するため、青→青緑→黄緑のグラデーションにする
+  const fuGradient = "rgb(0, 75, 150), rgb(0, 130, 170) 25%, rgb(60, 175, 140) 50%, rgb(130, 185, 80) 75%, rgb(165, 182, 52)";
 
   // 現在のFUインデックスの代表色
   const currentFuColor = FU_COLORS[environment.forelUleIndex - 1];
@@ -35,9 +32,8 @@ export default function EnvironmentPanel() {
         borderRadius: "10px",
         padding: "8px 10px",
         display: "flex",
-        alignItems: "center",
-        flexWrap: "nowrap",
-        gap: "6px 8px",
+        flexDirection: "column" as const,
+        gap: "6px",
       }}
     >
       {/* 海色（Forel-Ule）スライダー */}
@@ -63,7 +59,7 @@ export default function EnvironmentPanel() {
             height: "4px",
             appearance: "none",
             WebkitAppearance: "none",
-            background: `linear-gradient(to right, ${fuGradientStops})`,
+            background: `linear-gradient(to right, ${fuGradient})`,
             borderRadius: "2px",
             outline: "none",
             cursor: "pointer",
@@ -88,13 +84,6 @@ export default function EnvironmentPanel() {
           {environment.forelUleIndex}
         </span>
       </div>
-
-      {/* 区切り線 */}
-      <div style={{
-        width: "1px",
-        height: "20px",
-        background: "rgba(200, 230, 255, 0.12)",
-      }} />
 
       {/* 光量スライダー */}
       <div style={{ display: "flex", alignItems: "center", gap: "4px", minWidth: 0 }}>

@@ -37,18 +37,12 @@ export function getSpectrumColorAtDepth(
   absorptionMultiplier: number = 1.0,
   lightMultiplier: number = 1.0
 ): [number, number, number] {
-  const intensity = calculateAbsorption(wavelengthNm, depthMeters, absorptionMultiplier);
-  const ambientDarkening = Math.exp(-0.005 * depthMeters);
-
-  const r = Math.round(baseColor[0] * intensity * ambientDarkening * lightMultiplier);
-  const g = Math.round(baseColor[1] * intensity * ambientDarkening * lightMultiplier);
-  const b = Math.round(baseColor[2] * intensity * ambientDarkening * lightMultiplier);
-
-  return [
-    Math.max(0, Math.min(255, r)),
-    Math.max(0, Math.min(255, g)),
-    Math.max(0, Math.min(255, b)),
-  ];
+  // 単一波長の色なのでtransformColorAtDepthに委譲して
+  // 散乱光反射の効果を一貫して適用する
+  return transformColorAtDepth(
+    baseColor[0], baseColor[1], baseColor[2],
+    depthMeters, absorptionMultiplier, lightMultiplier
+  );
 }
 
 export function transformColorAtDepth(
@@ -86,9 +80,30 @@ export function transformColorAtDepth(
   const ambientDarkening = Math.exp(-0.005 * depthMeters);
   const blueScatter = Math.min(20, depthMeters * 0.04) * ambientDarkening;
 
-  const newR = Math.round(r * rAbsorption * ambientDarkening * lightMultiplier);
-  const newG = Math.round(g * gAbsorption * ambientDarkening * lightMultiplier);
-  const newB = Math.round(Math.min(255, b * bAbsorption * ambientDarkening * lightMultiplier + blueScatter));
+  // --- 散乱光の反射による明るい色・白の残存効果 ---
+  //
+  // 水中では太陽光が吸収されて青緑系のみ残存する。
+  // 明るい色（特に白）の物体は、この残存光を強く反射するため
+  // 周囲の水よりも目立って見える。（シーフロアコントロール、ホンダ釣り倶楽部の知見）
+  //
+  // 物体の「明度」が高いほど、残存する散乱光を多く反射し、
+  // 水中でのコントラスト（視認性）が高まる。
+  // 暗い色の物体は周囲の水に溶け込みやすい。
+
+  // 元の色の輝度（0〜1）を計算
+  const luminance = (r * 0.299 + g * 0.587 + b * 0.114) / 255;
+
+  // 水中の残存散乱光（青緑系）が物体表面で反射される量
+  // 明るい色ほど散乱光をよく反射する。白が最も強い。
+  const scatterReflection = luminance * ambientDarkening * lightMultiplier;
+  // 深度に応じた散乱光の色（青緑がかった光）
+  const scatterR = Math.min(40, depthMeters * 0.08) * scatterReflection;
+  const scatterG = Math.min(60, depthMeters * 0.15) * scatterReflection;
+  const scatterB = Math.min(80, depthMeters * 0.25) * scatterReflection;
+
+  const newR = Math.round(r * rAbsorption * ambientDarkening * lightMultiplier + scatterR);
+  const newG = Math.round(g * gAbsorption * ambientDarkening * lightMultiplier + scatterG);
+  const newB = Math.round(b * bAbsorption * ambientDarkening * lightMultiplier + blueScatter + scatterB);
 
   return [
     Math.max(0, Math.min(255, newR)),

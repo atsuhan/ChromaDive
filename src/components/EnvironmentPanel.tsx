@@ -29,44 +29,32 @@ export default function EnvironmentPanel() {
         padding: "8px 10px",
         display: "flex",
         alignItems: "center",
-        flexWrap: "wrap",
-        gap: "8px 12px",
+        flexWrap: "nowrap",
+        gap: "6px 8px",
       }}
     >
       {/* 海域選択 */}
-      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-        <span style={{
-          fontSize: "9px",
-          fontWeight: 500,
-          color: "rgba(200, 230, 255, 0.4)",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
-          whiteSpace: "nowrap",
-        }}>
-          海域
-        </span>
-        <div style={{ display: "flex", gap: "3px" }}>
-          {OCEAN_OPTIONS.map((opt) => (
-            <button
-              key={opt}
-              onClick={() => update({ ocean: opt })}
-              style={{
-                padding: "3px 8px",
-                fontSize: "11px",
-                fontWeight: environment.ocean === opt ? 500 : 300,
-                color: environment.ocean === opt ? "rgba(200, 230, 255, 0.9)" : "rgba(200, 230, 255, 0.45)",
-                background: environment.ocean === opt ? "rgba(100, 180, 255, 0.15)" : "rgba(255, 255, 255, 0.03)",
-                border: `1px solid ${environment.ocean === opt ? "rgba(100, 180, 255, 0.3)" : "rgba(200, 230, 255, 0.08)"}`,
-                borderRadius: "5px",
-                cursor: "pointer",
-                transition: "all 0.15s",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {OCEAN_LABELS[opt]}
-            </button>
-          ))}
-        </div>
+      <div style={{ display: "flex", gap: "3px" }}>
+        {OCEAN_OPTIONS.map((opt) => (
+          <button
+            key={opt}
+            onClick={() => update({ ocean: opt })}
+            style={{
+              padding: "3px 6px",
+              fontSize: "11px",
+              fontWeight: environment.ocean === opt ? 500 : 300,
+              color: environment.ocean === opt ? "rgba(200, 230, 255, 0.9)" : "rgba(200, 230, 255, 0.45)",
+              background: environment.ocean === opt ? "rgba(100, 180, 255, 0.15)" : "rgba(255, 255, 255, 0.03)",
+              border: `1px solid ${environment.ocean === opt ? "rgba(100, 180, 255, 0.3)" : "rgba(200, 230, 255, 0.08)"}`,
+              borderRadius: "5px",
+              cursor: "pointer",
+              transition: "all 0.15s",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {OCEAN_LABELS[opt]}
+          </button>
+        ))}
       </div>
 
       {/* 区切り線 */}
@@ -77,17 +65,7 @@ export default function EnvironmentPanel() {
       }} />
 
       {/* 光量スライダー */}
-      <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-        <span style={{
-          fontSize: "9px",
-          fontWeight: 500,
-          color: "rgba(200, 230, 255, 0.4)",
-          textTransform: "uppercase",
-          letterSpacing: "0.1em",
-          whiteSpace: "nowrap",
-        }}>
-          光量
-        </span>
+      <div style={{ display: "flex", alignItems: "center", gap: "4px", minWidth: 0 }}>
         <span style={{ fontSize: "10px", color: "rgba(200, 230, 255, 0.35)" }}>
           🌙
         </span>
@@ -98,8 +76,8 @@ export default function EnvironmentPanel() {
           value={Math.round(environment.lightIntensity * 100)}
           onChange={(e) => update({ lightIntensity: Number(e.target.value) / 100 })}
           style={{
-            width: "80px",
-            minWidth: "50px",
+            width: "60px",
+            minWidth: "40px",
             height: "4px",
             appearance: "none",
             WebkitAppearance: "none",

@@ -18,6 +18,7 @@ export default function ImageViewer() {
   const [hasImage, setHasImage] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [bgRemoved, setBgRemoved] = useState(false);
+  const [bgRemoving, setBgRemoving] = useState(false);
 
   const renderCanvas = useCallback(() => {
     if (!processorRef.current || !canvasRef.current) return;
@@ -84,19 +85,27 @@ export default function ImageViewer() {
     }
   }, []);
 
-  const handleToggleBgRemoval = useCallback(() => {
-    if (!processorRef.current) return;
+  const handleToggleBgRemoval = useCallback(async () => {
+    if (!processorRef.current || bgRemoving) return;
     const processor = processorRef.current;
 
     if (processor.hasBackgroundRemoved()) {
       processor.restoreBackground();
       setBgRemoved(false);
+      renderCanvas();
     } else {
-      processor.removeBackground(30);
-      setBgRemoved(true);
+      setBgRemoving(true);
+      try {
+        await processor.removeBackground();
+        setBgRemoved(true);
+        renderCanvas();
+      } catch (err) {
+        console.error("背景除去に失敗:", err);
+      } finally {
+        setBgRemoving(false);
+      }
     }
-    renderCanvas();
-  }, [renderCanvas]);
+  }, [renderCanvas, bgRemoving]);
 
   return (
     <div
@@ -235,14 +244,15 @@ export default function ImageViewer() {
           {/* 背景除去ボタン */}
           <ToolButton
             active={bgRemoved}
+            disabled={bgRemoving}
             onClick={handleToggleBgRemoval}
-            title={bgRemoved ? "背景を復元" : "背景を除去"}
+            title={bgRemoving ? "処理中..." : bgRemoved ? "背景を復元" : "背景を除去"}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="3" width="18" height="18" rx="2" />
               <path d="M9 3v18M3 9h18" strokeDasharray={bgRemoved ? "none" : "3 2"} />
             </svg>
-            {bgRemoved ? "背景復元" : "背景除去"}
+            {bgRemoving ? "処理中..." : bgRemoved ? "背景復元" : "背景除去"}
           </ToolButton>
 
           {/* 区切り */}
@@ -266,18 +276,21 @@ function ToolButton({
   children,
   active,
   danger,
+  disabled,
   onClick,
   title,
 }: {
   children: React.ReactNode;
   active?: boolean;
   danger?: boolean;
+  disabled?: boolean;
   onClick: () => void;
   title?: string;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       title={title}
       style={{
         display: "flex",
@@ -297,7 +310,8 @@ function ToolButton({
           : "rgba(200, 230, 255, 0.5)",
         fontSize: "11px",
         padding: "4px 10px",
-        cursor: "pointer",
+        cursor: disabled ? "wait" : "pointer",
+        opacity: disabled ? 0.5 : 1,
         transition: "all 0.15s",
         whiteSpace: "nowrap",
       }}

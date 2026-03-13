@@ -1,4 +1,5 @@
 import { transformColorAtDepth } from "./colorScience";
+import { removeBackground as imglyRemoveBackground } from "@imgly/background-removal";
 
 export interface ImageProcessor {
   applyDepthFilter(
@@ -6,7 +7,7 @@ export interface ImageProcessor {
     absorptionMultiplier?: number,
     lightMultiplier?: number,
   ): ImageData;
-  removeBackground(tolerance?: number): void;
+  removeBackground(): Promise<void>;
   restoreBackground(): void;
   hasBackgroundRemoved(): boolean;
   width: number;
@@ -49,91 +50,48 @@ export function createImageProcessor(
     height,
 
     /**
-     * 背景除去: Flood Fill で四隅から類似色を透明にする
+     * 背景除去: @imgly/background-removal のAIモデルで前景を抽出
      *
-     * 1. 四隅のピクセルを「背景色」としてサンプリング
-     * 2. 各隅からFlood Fillで色差がtolerance以内のピクセルを透明化
-     * 3. 境界にフェザリング（半透明グラデーション）を適用
+     * ブラウザ上でONNX Runtimeを使い、U²-Netベースのセグメンテーションを実行。
+     * 結果のアルファチャンネルをマスクとして保持する。
      */
-    removeBackground(tolerance: number = 30) {
+    async removeBackground() {
+      // 元画像をBlobに変換してライブラリに渡す
+      canvas.width = width;
+      canvas.height = height;
+      ctx.putImageData(originalData, 0, 0);
+      const blob = await new Promise<Blob>((resolve) => {
+        canvas.toBlob((b) => resolve(b!), "image/png");
+      });
+
+      const resultBlob = await imglyRemoveBackground(blob, {
+        // 初回はモデルをダウンロードするため時間がかかる
+        progress: (key: string, current: number, total: number) => {
+          console.log(`[背景除去] ${key}: ${Math.round((current / total) * 100)}%`);
+        },
+      });
+
+      // 結果画像からアルファマスクを抽出
+      const resultImg = new Image();
+      await new Promise<void>((resolve) => {
+        resultImg.onload = () => resolve();
+        resultImg.src = URL.createObjectURL(resultBlob);
+      });
+
+      const tmpCanvas = document.createElement("canvas");
+      tmpCanvas.width = width;
+      tmpCanvas.height = height;
+      const tmpCtx = tmpCanvas.getContext("2d")!;
+      tmpCtx.drawImage(resultImg, 0, 0, width, height);
+      URL.revokeObjectURL(resultImg.src);
+
+      const resultData = tmpCtx.getImageData(0, 0, width, height);
       const mask = new Uint8ClampedArray(width * height);
-      mask.fill(255); // 全ピクセル不透明から開始
-
-      const src = originalPixels;
-      const visited = new Uint8Array(width * height);
-
-      // 四隅のサンプルポイント
-      const corners = [
-        [0, 0],
-        [width - 1, 0],
-        [0, height - 1],
-        [width - 1, height - 1],
-      ];
-
-      for (const [cx, cy] of corners) {
-        const ci = (cy * width + cx) * 4;
-        const bgR = src[ci];
-        const bgG = src[ci + 1];
-        const bgB = src[ci + 2];
-
-        // BFS Flood Fill
-        const queue: [number, number][] = [[cx, cy]];
-        const key = cy * width + cx;
-        if (visited[key]) continue;
-        visited[key] = 1;
-
-        while (queue.length > 0) {
-          const [x, y] = queue.shift()!;
-          const idx = (y * width + x) * 4;
-
-          const dr = src[idx] - bgR;
-          const dg = src[idx + 1] - bgG;
-          const db = src[idx + 2] - bgB;
-          const dist = Math.sqrt(dr * dr + dg * dg + db * db);
-
-          if (dist <= tolerance) {
-            // フェザリング: 閾値に近いほど半透明
-            const feather = dist > tolerance * 0.6
-              ? Math.round(255 * (dist - tolerance * 0.6) / (tolerance * 0.4))
-              : 0;
-            mask[y * width + x] = feather;
-
-            // 隣接ピクセルをキューに追加
-            const neighbors: [number, number][] = [
-              [x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1],
-            ];
-            for (const [nx, ny] of neighbors) {
-              if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-                const nk = ny * width + nx;
-                if (!visited[nk]) {
-                  visited[nk] = 1;
-                  queue.push([nx, ny]);
-                }
-              }
-            }
-          }
-        }
+      for (let i = 0; i < mask.length; i++) {
+        mask[i] = resultData.data[i * 4 + 3];
       }
 
-      // エッジスムージング: 3x3カーネルで境界をなめらかに
-      const smoothed = new Uint8ClampedArray(mask);
-      for (let y = 1; y < height - 1; y++) {
-        for (let x = 1; x < width - 1; x++) {
-          const idx = y * width + x;
-          // 完全不透明でも完全透明でもないピクセルの周囲を平均化
-          if (mask[idx] > 0 && mask[idx] < 255) {
-            let sum = 0;
-            for (let dy = -1; dy <= 1; dy++) {
-              for (let dx = -1; dx <= 1; dx++) {
-                sum += mask[(y + dy) * width + (x + dx)];
-              }
-            }
-            smoothed[idx] = Math.round(sum / 9);
-          }
-        }
-      }
-
-      alphaMask = smoothed;
+      alphaMask = mask;
       cachedKey = "";
       cachedResult = null;
     },

@@ -41,7 +41,7 @@ const BRIGHTNESS_ROWS: { label: string; mix: (c: [number, number, number]) => [n
 
 export default function ColorSpectrum() {
   const { currentDepth, environment } = useDepth();
-  const absorptionMul = getOceanAbsorptionMultiplier(environment.ocean);
+  const absorptionMul = getOceanAbsorptionMultiplier(environment.forelUleIndex);
   const lightMul = getLightMultiplier(environment.lightIntensity);
 
   // 白/黒の列用データ（波長は可視光中央の550nmで代表）

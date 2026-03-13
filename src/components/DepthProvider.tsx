@@ -10,7 +10,7 @@ import { DepthContextType, EnvironmentSettings } from "@/types";
 import { MAX_DEPTH } from "@/lib/constants";
 
 const DEFAULT_ENV: EnvironmentSettings = {
-  ocean: "temperate",
+  forelUleIndex: 5,
   timeOfDay: "day",
   lightIntensity: 1.0,
 };

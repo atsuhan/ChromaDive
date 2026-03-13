@@ -10,7 +10,7 @@ import {
 
 export default function ImageViewer() {
   const { currentDepth, environment } = useDepth();
-  const absorptionMul = getOceanAbsorptionMultiplier(environment.ocean);
+  const absorptionMul = getOceanAbsorptionMultiplier(environment.forelUleIndex);
   const lightMul = getLightMultiplier(environment.lightIntensity);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const processorRef = useRef<ImageProcessor | null>(null);

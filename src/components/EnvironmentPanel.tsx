@@ -1,10 +1,7 @@
 "use client";
 
 import { useDepth } from "./DepthProvider";
-import { OceanType } from "@/types";
-import { OCEAN_LABELS } from "@/lib/environment";
-
-const OCEAN_OPTIONS: OceanType[] = ["tropical", "temperate", "coastal"];
+import { FU_COLORS } from "@/lib/environment";
 
 export default function EnvironmentPanel() {
   const { environment, setEnvironment } = useDepth();
@@ -12,6 +9,16 @@ export default function EnvironmentPanel() {
   const update = (partial: Partial<typeof environment>) => {
     setEnvironment({ ...environment, ...partial });
   };
+
+  // FUスライダーのグラデーション背景を生成
+  // 21色を等間隔に配置してCSS linear-gradientにする
+  const fuGradientStops = FU_COLORS.map((c, i) => {
+    const pct = (i / (FU_COLORS.length - 1)) * 100;
+    return `rgb(${c[0]},${c[1]},${c[2]}) ${pct}%`;
+  }).join(", ");
+
+  // 現在のFUインデックスの代表色
+  const currentFuColor = FU_COLORS[environment.forelUleIndex - 1];
 
   return (
     <div
@@ -33,28 +40,53 @@ export default function EnvironmentPanel() {
         gap: "6px 8px",
       }}
     >
-      {/* 海域選択 */}
-      <div style={{ display: "flex", gap: "3px" }}>
-        {OCEAN_OPTIONS.map((opt) => (
-          <button
-            key={opt}
-            onClick={() => update({ ocean: opt })}
-            style={{
-              padding: "3px 6px",
-              fontSize: "11px",
-              fontWeight: environment.ocean === opt ? 500 : 300,
-              color: environment.ocean === opt ? "rgba(200, 230, 255, 0.9)" : "rgba(200, 230, 255, 0.45)",
-              background: environment.ocean === opt ? "rgba(100, 180, 255, 0.15)" : "rgba(255, 255, 255, 0.03)",
-              border: `1px solid ${environment.ocean === opt ? "rgba(100, 180, 255, 0.3)" : "rgba(200, 230, 255, 0.08)"}`,
-              borderRadius: "5px",
-              cursor: "pointer",
-              transition: "all 0.15s",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {OCEAN_LABELS[opt]}
-          </button>
-        ))}
+      {/* 海色（Forel-Ule）スライダー */}
+      <div style={{ display: "flex", alignItems: "center", gap: "4px", minWidth: 0, flex: "1 1 auto" }}>
+        <span style={{
+          fontSize: "9px",
+          color: "rgba(200, 230, 255, 0.5)",
+          whiteSpace: "nowrap",
+          letterSpacing: "0.02em",
+        }}>
+          海色
+        </span>
+        <input
+          type="range"
+          min="1"
+          max="21"
+          step="1"
+          value={environment.forelUleIndex}
+          onChange={(e) => update({ forelUleIndex: Number(e.target.value) })}
+          style={{
+            width: "80px",
+            minWidth: "50px",
+            height: "4px",
+            appearance: "none",
+            WebkitAppearance: "none",
+            background: `linear-gradient(to right, ${fuGradientStops})`,
+            borderRadius: "2px",
+            outline: "none",
+            cursor: "pointer",
+            flex: "1 1 60px",
+          }}
+        />
+        {/* 現在のFU色を小さいプレビューで表示 */}
+        <div style={{
+          width: "12px",
+          height: "12px",
+          borderRadius: "3px",
+          backgroundColor: `rgb(${currentFuColor[0]},${currentFuColor[1]},${currentFuColor[2]})`,
+          border: "1px solid rgba(255,255,255,0.2)",
+          flexShrink: 0,
+        }} />
+        <span style={{
+          fontSize: "9px",
+          color: "rgba(200, 230, 255, 0.4)",
+          minWidth: "16px",
+          textAlign: "right",
+        }}>
+          {environment.forelUleIndex}
+        </span>
       </div>
 
       {/* 区切り線 */}

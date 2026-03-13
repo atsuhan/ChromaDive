@@ -6,11 +6,18 @@ export interface WavelengthInfo {
   absorptionCoefficient: number;
 }
 
-export type OceanType = "tropical" | "temperate" | "coastal";
 export type TimeOfDay = "day" | "sunset" | "night";
 
 export interface EnvironmentSettings {
-  ocean: OceanType;
+  /**
+   * Forel-Ule海色スケール（1〜21）
+   * 1 = 外洋の深い藍色（最も透明）
+   * 21 = 沿岸の茶緑色（最も濁った水）
+   *
+   * 19世紀に開発された目視海色分類で、現在もリモートセンシングの
+   * 地上検証に使われる国際標準。水中の散乱・吸収特性を1つの指標で表す。
+   */
+  forelUleIndex: number;
   timeOfDay: TimeOfDay;
   /**
    * 光量（0.0〜1.0）

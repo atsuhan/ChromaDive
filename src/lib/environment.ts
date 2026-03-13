@@ -1,40 +1,98 @@
-import { OceanType, TimeOfDay } from "@/types";
 import { getPhysicalWaterColor, ScatterParams } from "./colorScience";
 
 /**
- * 海のタイプごとの吸収係数の倍率
- * 熱帯: 透明度が高い（係数小さい）
- * 温帯: 標準
- * 沿岸: 濁りで吸収が強い（係数大きい）
+ * Forel-Uleスケールの物理パラメータ定義
+ *
+ * FUインデックスの代表点ごとに散乱・吸収パラメータを定義し、
+ * 中間値は線形補間で算出する。
+ *
+ * パラメータの物理的意味:
+ * - absorptionMul: Beer-Lambert法の吸収係数倍率。大きいほど光が早く減衰
+ * - rayleigh: 純水のレイリー散乱。λ^-4依存で短波長(青)を強く散乱
+ * - mie: 懸濁粒子によるミー散乱。波長依存性が弱く緑寄りの散乱
+ * - chlorophyll: クロロフィルa濃度指標。440nm/675nmに吸収ピーク
+ *
+ * 参考値:
+ *  FU 1-2: 外洋（Jerlov Type I相当）— 極めて透明、レイリー散乱支配
+ *  FU 5-7: 外洋〜沿岸遷移域 — プランクトン増加で青緑に
+ *  FU 10-14: 沿岸域 — ミー散乱増加、緑色が支配的
+ *  FU 17-21: 河口・高濁度域 — 懸濁物質で黄緑〜茶色
  */
-export function getOceanAbsorptionMultiplier(ocean: OceanType): number {
-  switch (ocean) {
-    case "tropical": return 0.7;
-    case "temperate": return 1.0;
-    case "coastal": return 1.8;
+interface ForelUleParams {
+  fuIndex: number;
+  absorptionMul: number;
+  scatter: ScatterParams;
+}
+
+const FU_KEYPOINTS: ForelUleParams[] = [
+  // FU 1: 最も透明な外洋。深い藍色。Jerlov Type I相当
+  { fuIndex: 1, absorptionMul: 0.6, scatter: { rayleigh: 1.3, mie: 0.02, chlorophyll: 0.03 } },
+  // FU 3: 外洋。鮮やかな青
+  { fuIndex: 3, absorptionMul: 0.7, scatter: { rayleigh: 1.2, mie: 0.05, chlorophyll: 0.08 } },
+  // FU 5: 青〜青緑の遷移。プランクトンがやや増加
+  { fuIndex: 5, absorptionMul: 0.8, scatter: { rayleigh: 1.1, mie: 0.12, chlorophyll: 0.2 } },
+  // FU 7: 青緑。温帯外洋の典型
+  { fuIndex: 7, absorptionMul: 0.9, scatter: { rayleigh: 1.0, mie: 0.25, chlorophyll: 0.4 } },
+  // FU 9: 緑がかった青。温帯沿岸寄り
+  { fuIndex: 9, absorptionMul: 1.0, scatter: { rayleigh: 0.9, mie: 0.4, chlorophyll: 0.6 } },
+  // FU 11: 緑。沿岸域の典型
+  { fuIndex: 11, absorptionMul: 1.2, scatter: { rayleigh: 0.8, mie: 0.6, chlorophyll: 0.9 } },
+  // FU 14: 黄緑。高クロロフィル域
+  { fuIndex: 14, absorptionMul: 1.5, scatter: { rayleigh: 0.65, mie: 0.9, chlorophyll: 1.3 } },
+  // FU 17: 黄色みのある緑。河口域
+  { fuIndex: 17, absorptionMul: 1.8, scatter: { rayleigh: 0.5, mie: 1.3, chlorophyll: 1.6 } },
+  // FU 21: 最も濁った茶緑。高濁度の河口・潟湖
+  { fuIndex: 21, absorptionMul: 2.2, scatter: { rayleigh: 0.35, mie: 1.8, chlorophyll: 2.0 } },
+];
+
+/**
+ * FUインデックスからキーポイント間を線形補間してパラメータを取得
+ */
+function interpolateScalar(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+function interpolateParams(fuIndex: number): { absorptionMul: number; scatter: ScatterParams } {
+  // 範囲クランプ
+  const clamped = Math.max(1, Math.min(21, fuIndex));
+
+  // キーポイント間の位置を特定
+  let lower = FU_KEYPOINTS[0];
+  let upper = FU_KEYPOINTS[FU_KEYPOINTS.length - 1];
+
+  for (let i = 0; i < FU_KEYPOINTS.length - 1; i++) {
+    if (clamped >= FU_KEYPOINTS[i].fuIndex && clamped <= FU_KEYPOINTS[i + 1].fuIndex) {
+      lower = FU_KEYPOINTS[i];
+      upper = FU_KEYPOINTS[i + 1];
+      break;
+    }
   }
+
+  const range = upper.fuIndex - lower.fuIndex;
+  const t = range === 0 ? 0 : (clamped - lower.fuIndex) / range;
+
+  return {
+    absorptionMul: interpolateScalar(lower.absorptionMul, upper.absorptionMul, t),
+    scatter: {
+      rayleigh: interpolateScalar(lower.scatter.rayleigh, upper.scatter.rayleigh, t),
+      mie: interpolateScalar(lower.scatter.mie, upper.scatter.mie, t),
+      chlorophyll: interpolateScalar(lower.scatter.chlorophyll, upper.scatter.chlorophyll, t),
+    },
+  };
 }
 
 /**
- * 海域ごとの散乱パラメータ
- *
- * rayleigh: 純水のレイリー散乱強度。全海域で存在するが透明度が高いほど支配的。
- * mie: ミー散乱（懸濁粒子による）。沿岸で強い。波長依存性が弱く緑寄り。
- * chlorophyll: クロロフィル濃度指標。植物プランクトンによる追加吸収(440nm,675nm)。
- *              沿岸・温帯で高い。
+ * FUインデックスから吸収係数倍率を取得
  */
-export function getOceanScatterParams(ocean: OceanType): ScatterParams {
-  switch (ocean) {
-    // 熱帯外洋: 極めて透明。レイリー散乱のみ → 鮮やかな青
-    case "tropical":
-      return { rayleigh: 1.2, mie: 0.05, chlorophyll: 0.1 };
-    // 温帯: 適度なプランクトン。青緑
-    case "temperate":
-      return { rayleigh: 1.0, mie: 0.3, chlorophyll: 0.5 };
-    // 沿岸: 高濁度。ミー散乱が支配的 → 緑がかる
-    case "coastal":
-      return { rayleigh: 0.6, mie: 1.2, chlorophyll: 1.5 };
-  }
+export function getOceanAbsorptionMultiplier(fuIndex: number): number {
+  return interpolateParams(fuIndex).absorptionMul;
+}
+
+/**
+ * FUインデックスから散乱パラメータを取得
+ */
+export function getOceanScatterParams(fuIndex: number): ScatterParams {
+  return interpolateParams(fuIndex).scatter;
 }
 
 /**
@@ -108,24 +166,42 @@ function interpolateColor(c1: string, c2: string, t: number): string {
  */
 export function getWaterColorAtDepth(
   depthMeters: number,
-  ocean: OceanType,
+  fuIndex: number,
   lightIntensity: number
 ): [number, number, number] {
-  const absorptionMul = getOceanAbsorptionMultiplier(ocean);
+  const { absorptionMul, scatter } = interpolateParams(fuIndex);
   const lightMul = getLightMultiplier(lightIntensity);
-  const scatter = getOceanScatterParams(ocean);
 
   return getPhysicalWaterColor(depthMeters, absorptionMul, lightMul, scatter);
 }
 
-export const OCEAN_LABELS: Record<OceanType, string> = {
-  tropical: "熱帯",
-  temperate: "温帯",
-  coastal: "沿岸",
-};
-
-export const TIME_LABELS: Record<TimeOfDay, string> = {
-  day: "日中",
-  sunset: "夕方",
-  night: "夜",
-};
+/**
+ * FUインデックスの代表色（スライダー表示用）
+ *
+ * Wernand & van der Woerd (2010) の測定値を元にした
+ * Forel-Uleスケール21色のsRGB近似値。
+ * 海面で目視される水の色に対応する。
+ */
+export const FU_COLORS: [number, number, number][] = [
+  [0, 75, 150],     // FU 1:  深い藍色
+  [0, 90, 160],     // FU 2:  藍色
+  [0, 110, 165],    // FU 3:  青
+  [0, 130, 170],    // FU 4:  明るい青
+  [0, 150, 165],    // FU 5:  青緑
+  [30, 165, 155],   // FU 6:  青緑（緑寄り）
+  [60, 175, 140],   // FU 7:  緑がかった青
+  [85, 180, 120],   // FU 8:  青緑〜緑
+  [110, 185, 100],  // FU 9:  緑
+  [130, 185, 80],   // FU 10: 緑（黄寄り）
+  [150, 185, 65],   // FU 11: 黄緑
+  [165, 182, 52],   // FU 12: 黄緑
+  [178, 178, 42],   // FU 13: 黄緑〜黄
+  [188, 170, 38],   // FU 14: 緑黄
+  [195, 160, 35],   // FU 15: 黄
+  [200, 148, 34],   // FU 16: 黄〜橙
+  [202, 135, 34],   // FU 17: 橙黄
+  [200, 120, 36],   // FU 18: 橙
+  [195, 105, 38],   // FU 19: 橙褐
+  [186, 90, 40],    // FU 20: 褐色
+  [175, 78, 42],    // FU 21: 茶褐色
+];

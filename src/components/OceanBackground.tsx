@@ -26,16 +26,16 @@ export default function OceanBackground() {
   const bgTop = useMemo(
     () => getWaterColorAtDepth(
       Math.max(0, currentDepth - viewRange * 0.3),
-      environment.ocean, environment.lightIntensity
+      environment.forelUleIndex, environment.lightIntensity
     ),
-    [currentDepth, viewRange, environment.ocean, environment.lightIntensity]
+    [currentDepth, viewRange, environment.forelUleIndex, environment.lightIntensity]
   );
   const bgBottom = useMemo(
     () => getWaterColorAtDepth(
       currentDepth + viewRange * 0.7,
-      environment.ocean, environment.lightIntensity
+      environment.forelUleIndex, environment.lightIntensity
     ),
-    [currentDepth, viewRange, environment.ocean, environment.lightIntensity]
+    [currentDepth, viewRange, environment.forelUleIndex, environment.lightIntensity]
   );
 
   // 日中の水面付近は太陽光の散乱・反射で白っぽくなる

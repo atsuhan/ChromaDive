@@ -42,10 +42,14 @@ export function getOceanScatterParams(ocean: OceanType): ScatterParams {
  *
  * lightIntensity: 0.0（夜）〜 1.0（夏の日中）
  * 光量0で完全な闇にはならない（月明かり等）ため最小値は0.02
+ *
+ * 最大値1.5: 熱帯外洋・真夏の正午など、高照度条件を再現。
+ * 海面での太陽放射照度は曇天〜快晴で5倍以上変動するため、
+ * 1.0を「標準的な日中」、1.5を「最大照度」として幅を持たせる。
  */
 export function getLightMultiplier(lightIntensity: number): number {
-  // 最小0.02（夜間の微光）〜 最大1.0（夏の日中）
-  return 0.02 + lightIntensity * 0.98;
+  // 最小0.02（夜間の微光）〜 最大1.5（真夏の快晴正午）
+  return 0.02 + lightIntensity * 1.48;
 }
 
 /**

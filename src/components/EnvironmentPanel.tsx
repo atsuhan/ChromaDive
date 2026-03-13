@@ -30,19 +30,20 @@ export default function EnvironmentPanel() {
         backdropFilter: "blur(10px)",
         border: "1px solid rgba(200, 230, 255, 0.12)",
         borderRadius: "10px",
-        padding: "8px 10px",
+        padding: "10px 14px",
         display: "flex",
         flexDirection: "column" as const,
-        gap: "6px",
+        gap: "8px",
       }}
     >
       {/* 海色（Forel-Ule）スライダー */}
-      <div style={{ display: "flex", alignItems: "center", gap: "4px", minWidth: 0, flex: "1 1 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
         <span style={{
-          fontSize: "9px",
+          fontSize: "10px",
           color: "rgba(200, 230, 255, 0.5)",
           whiteSpace: "nowrap",
           letterSpacing: "0.02em",
+          minWidth: "24px",
         }}>
           海色
         </span>
@@ -54,40 +55,35 @@ export default function EnvironmentPanel() {
           value={environment.forelUleIndex}
           onChange={(e) => update({ forelUleIndex: Number(e.target.value) })}
           style={{
-            width: "80px",
-            minWidth: "50px",
-            height: "4px",
+            height: "6px",
             appearance: "none",
             WebkitAppearance: "none",
             background: `linear-gradient(to right, ${fuGradient})`,
-            borderRadius: "2px",
+            borderRadius: "3px",
             outline: "none",
             cursor: "pointer",
-            flex: "1 1 60px",
+            flex: "1 1 0",
           }}
         />
         {/* 現在のFU色を小さいプレビューで表示 */}
         <div style={{
-          width: "12px",
-          height: "12px",
+          width: "14px",
+          height: "14px",
           borderRadius: "3px",
           backgroundColor: `rgb(${currentFuColor[0]},${currentFuColor[1]},${currentFuColor[2]})`,
           border: "1px solid rgba(255,255,255,0.2)",
           flexShrink: 0,
         }} />
-        <span style={{
-          fontSize: "9px",
-          color: "rgba(200, 230, 255, 0.4)",
-          minWidth: "16px",
-          textAlign: "right",
-        }}>
-          {environment.forelUleIndex}
-        </span>
       </div>
 
       {/* 光量スライダー */}
-      <div style={{ display: "flex", alignItems: "center", gap: "4px", minWidth: 0 }}>
-        <span style={{ fontSize: "10px", color: "rgba(200, 230, 255, 0.35)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+        <span style={{
+          fontSize: "10px",
+          color: "rgba(200, 230, 255, 0.35)",
+          minWidth: "24px",
+          textAlign: "center",
+        }}>
           🌙
         </span>
         <input
@@ -97,31 +93,26 @@ export default function EnvironmentPanel() {
           value={Math.round(environment.lightIntensity * 100)}
           onChange={(e) => update({ lightIntensity: Number(e.target.value) / 100 })}
           style={{
-            width: "60px",
-            minWidth: "40px",
-            height: "4px",
+            height: "6px",
             appearance: "none",
             WebkitAppearance: "none",
             background: `linear-gradient(to right,
               rgba(30, 40, 80, 0.8) 0%,
               rgba(100, 140, 200, 0.6) 40%,
               rgba(255, 230, 180, 0.8) 100%)`,
-            borderRadius: "2px",
+            borderRadius: "3px",
             outline: "none",
             cursor: "pointer",
-            flex: "1 1 50px",
+            flex: "1 1 0",
           }}
         />
-        <span style={{ fontSize: "10px", color: "rgba(200, 230, 255, 0.35)" }}>
-          ☀️
-        </span>
         <span style={{
-          fontSize: "9px",
+          fontSize: "10px",
           color: "rgba(200, 230, 255, 0.35)",
-          minWidth: "26px",
-          textAlign: "right",
+          minWidth: "14px",
+          textAlign: "center",
         }}>
-          {Math.round(environment.lightIntensity * 100)}%
+          ☀️
         </span>
       </div>
     </div>

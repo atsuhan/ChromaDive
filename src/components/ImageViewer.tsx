@@ -104,7 +104,7 @@ export default function ImageViewer() {
       style={{
         position: "fixed",
         /* 操作パネル(2段)の下に配置。下部カラーパレットとの余白と同程度のスペースを確保 */
-        top: "80px",
+        top: "88px",
         left: "16px",
         right: "72px",
         bottom: "120px",

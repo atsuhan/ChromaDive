@@ -7,6 +7,14 @@ import {
   getOceanAbsorptionMultiplier,
   getLightMultiplier,
 } from "@/lib/environment";
+import {
+  createSegmentationSession,
+  type SegmentationSession,
+  type ClickPoint,
+} from "@/lib/lureSegmenter";
+
+/** ルアー抽出モードの状態 */
+type LureMode = "off" | "loading" | "ready" | "segmenting";
 
 export default function ImageViewer() {
   const { currentDepth, environment } = useDepth();
@@ -19,6 +27,15 @@ export default function ImageViewer() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [bgRemoved, setBgRemoved] = useState(false);
   const [bgRemoving, setBgRemoving] = useState(false);
+
+  // ルアー抽出（SAM）関連
+  const [lureMode, setLureMode] = useState<LureMode>("off");
+  const [lureExtracted, setLureExtracted] = useState(false);
+  const [modelProgress, setModelProgress] = useState(0);
+  const [clickPoints, setClickPoints] = useState<ClickPoint[]>([]);
+  const segSessionRef = useRef<SegmentationSession | null>(null);
+  // 元画像を保持（SAMセッション作成に必要）
+  const imageElementRef = useRef<HTMLImageElement | null>(null);
 
   const renderCanvas = useCallback(() => {
     if (!processorRef.current || !canvasRef.current) return;
@@ -44,6 +61,7 @@ export default function ImageViewer() {
     img.onload = () => {
       const processor = createImageProcessor(img);
       processorRef.current = processor;
+      imageElementRef.current = img;
 
       const canvas = canvasRef.current!;
       canvas.width = processor.width;
@@ -56,6 +74,11 @@ export default function ImageViewer() {
 
       setHasImage(true);
       setBgRemoved(false);
+      setLureMode("off");
+      setLureExtracted(false);
+      setClickPoints([]);
+      segSessionRef.current?.dispose();
+      segSessionRef.current = null;
       URL.revokeObjectURL(url);
     };
     img.src = url;
@@ -77,8 +100,14 @@ export default function ImageViewer() {
 
   const handleRemove = useCallback(() => {
     processorRef.current = null;
+    imageElementRef.current = null;
+    segSessionRef.current?.dispose();
+    segSessionRef.current = null;
     setHasImage(false);
     setBgRemoved(false);
+    setLureMode("off");
+    setLureExtracted(false);
+    setClickPoints([]);
     if (canvasRef.current) {
       const ctx = canvasRef.current.getContext("2d")!;
       ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
@@ -106,6 +135,123 @@ export default function ImageViewer() {
       }
     }
   }, [renderCanvas, bgRemoving]);
+
+  /**
+   * ルアー抽出モードを開始
+   *
+   * SAMモデルをロードし、画像エンベディングを事前計算する。
+   * 完了後、画像クリックでセグメンテーションできる状態になる。
+   */
+  const handleStartLureMode = useCallback(async () => {
+    if (!processorRef.current || !imageElementRef.current) return;
+    if (lureMode === "loading") return;
+
+    // すでに抽出済みなら解除
+    if (lureExtracted) {
+      processorRef.current.clearMask();
+      setLureExtracted(false);
+      setLureMode("off");
+      setClickPoints([]);
+      segSessionRef.current?.dispose();
+      segSessionRef.current = null;
+      renderCanvas();
+      return;
+    }
+
+    setLureMode("loading");
+    setModelProgress(0);
+    setClickPoints([]);
+
+    try {
+      const processor = processorRef.current;
+      const session = await createSegmentationSession(
+        imageElementRef.current,
+        processor.width,
+        processor.height,
+        (percent) => setModelProgress(percent),
+      );
+      segSessionRef.current = session;
+      setLureMode("ready");
+    } catch (err) {
+      console.error("SAMモデルのロードに失敗:", err);
+      setLureMode("off");
+    }
+  }, [lureMode, lureExtracted, renderCanvas]);
+
+  /**
+   * キャンバスクリック → SAMセグメンテーション実行
+   *
+   * 表示上の座標を元画像の座標に変換し、SAMに渡す。
+   * 左クリック=前景、右クリック=背景として扱う。
+   */
+  const handleCanvasClick = useCallback(async (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (lureMode !== "ready" || !segSessionRef.current || !processorRef.current) return;
+
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+
+    // CSS表示サイズと実際のcanvasサイズの比率を計算
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = Math.round((e.clientX - rect.left) * scaleX);
+    const y = Math.round((e.clientY - rect.top) * scaleY);
+
+    const isBackground = e.shiftKey;
+    const newPoint: ClickPoint = { x, y, label: isBackground ? 0 : 1 };
+    const newPoints = [...clickPoints, newPoint];
+    setClickPoints(newPoints);
+    setLureMode("segmenting");
+
+    try {
+      const result = await segSessionRef.current.segmentAtPoints(newPoints);
+      processorRef.current.applyMask(result.mask);
+      setLureExtracted(true);
+      renderCanvas();
+    } catch (err) {
+      console.error("セグメンテーションに失敗:", err);
+    } finally {
+      setLureMode("ready");
+    }
+  }, [lureMode, clickPoints, renderCanvas]);
+
+  /** 右クリックで背景ポイントを追加 */
+  const handleCanvasContextMenu = useCallback(async (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (lureMode !== "ready" || !segSessionRef.current || !processorRef.current) return;
+    e.preventDefault();
+
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const x = Math.round((e.clientX - rect.left) * scaleX);
+    const y = Math.round((e.clientY - rect.top) * scaleY);
+
+    const newPoint: ClickPoint = { x, y, label: 0 };
+    const newPoints = [...clickPoints, newPoint];
+    setClickPoints(newPoints);
+    setLureMode("segmenting");
+
+    try {
+      const result = await segSessionRef.current.segmentAtPoints(newPoints);
+      processorRef.current.applyMask(result.mask);
+      setLureExtracted(true);
+      renderCanvas();
+    } catch (err) {
+      console.error("セグメンテーションに失敗:", err);
+    } finally {
+      setLureMode("ready");
+    }
+  }, [lureMode, clickPoints, renderCanvas]);
+
+  // ルアーモード中はカーソルを十字に変更
+  const canvasCursor = lureMode === "ready"
+    ? "crosshair"
+    : lureMode === "segmenting"
+      ? "wait"
+      : "default";
+
+  // マスクが適用されている状態（背景除去 or ルアー抽出）
+  const hasMask = bgRemoved || lureExtracted;
 
   return (
     <div
@@ -135,7 +281,13 @@ export default function ImageViewer() {
           width: "100%",
           height: "100%",
           maxWidth: "800px",
-          border: `2px dashed ${isDragOver ? "rgba(140, 220, 255, 0.7)" : "rgba(200, 230, 255, 0.25)"}`,
+          border: `2px dashed ${
+            lureMode === "ready"
+              ? "rgba(255, 200, 100, 0.5)"
+              : isDragOver
+                ? "rgba(140, 220, 255, 0.7)"
+                : "rgba(200, 230, 255, 0.25)"
+          }`,
           borderRadius: "12px",
           display: "flex",
           alignItems: "center",
@@ -150,8 +302,8 @@ export default function ImageViewer() {
           padding: "8px",
         }}
       >
-        {/* チェッカーボード背景（背景除去時に透明部分を可視化） */}
-        {bgRemoved && (
+        {/* チェッカーボード背景（マスク適用時に透明部分を可視化） */}
+        {hasMask && (
           <div style={{
             position: "absolute",
             inset: 0,
@@ -169,14 +321,55 @@ export default function ImageViewer() {
 
         <canvas
           ref={canvasRef}
+          onClick={handleCanvasClick}
+          onContextMenu={handleCanvasContextMenu}
           style={{
             display: hasImage ? "block" : "none",
             maxWidth: "100%",
             maxHeight: "100%",
             objectFit: "contain",
             position: "relative",
+            cursor: canvasCursor,
           }}
         />
+
+        {/* ルアー抽出モードのガイド表示 */}
+        {lureMode === "ready" && !lureExtracted && (
+          <div style={{
+            position: "absolute",
+            top: "12px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0, 0, 0, 0.7)",
+            color: "rgba(255, 200, 100, 0.9)",
+            fontSize: "12px",
+            padding: "6px 14px",
+            borderRadius: "20px",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}>
+            ルアーをクリック（右クリックで背景を除外）
+          </div>
+        )}
+
+        {/* モデルロード中のプログレス */}
+        {lureMode === "loading" && (
+          <div style={{
+            position: "absolute",
+            top: "12px",
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "rgba(0, 0, 0, 0.7)",
+            color: "rgba(200, 230, 255, 0.8)",
+            fontSize: "12px",
+            padding: "6px 14px",
+            borderRadius: "20px",
+            pointerEvents: "none",
+            whiteSpace: "nowrap",
+          }}>
+            AIモデル読込中... {modelProgress}%
+          </div>
+        )}
 
         {!hasImage && (
           <label style={{
@@ -241,10 +434,33 @@ export default function ImageViewer() {
           flexWrap: "wrap",
           justifyContent: "center",
         }}>
+          {/* ルアー抽出ボタン */}
+          <ToolButton
+            active={lureMode !== "off" || lureExtracted}
+            disabled={lureMode === "loading" || lureMode === "segmenting"}
+            onClick={handleStartLureMode}
+            title={
+              lureExtracted ? "ルアー抽出を解除"
+                : lureMode === "loading" ? "モデル読込中..."
+                : lureMode === "ready" ? "クリックで指定"
+                : "ルアーを抽出"
+            }
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="8" />
+              <path d="M21 21l-4.35-4.35" />
+              <path d="M11 8v6M8 11h6" />
+            </svg>
+            {lureExtracted ? "抽出解除"
+              : lureMode === "loading" ? `読込中 ${modelProgress}%`
+              : lureMode === "ready" || lureMode === "segmenting" ? "クリックで指定"
+              : "ルアー抽出"}
+          </ToolButton>
+
           {/* 背景除去ボタン */}
           <ToolButton
             active={bgRemoved}
-            disabled={bgRemoving}
+            disabled={bgRemoving || lureMode !== "off"}
             onClick={handleToggleBgRemoval}
             title={bgRemoving ? "処理中..." : bgRemoved ? "背景を復元" : "背景を除去"}
           >

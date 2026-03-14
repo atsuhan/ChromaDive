@@ -10,6 +10,10 @@ export interface ImageProcessor {
   removeBackground(): Promise<void>;
   restoreBackground(): void;
   hasBackgroundRemoved(): boolean;
+  /** 外部で生成したアルファマスクを直接適用する（SAMセグメンテーション用） */
+  applyMask(mask: Uint8ClampedArray): void;
+  /** 現在のマスク状態をクリアする */
+  clearMask(): void;
   width: number;
   height: number;
 }
@@ -97,6 +101,18 @@ export function createImageProcessor(
     },
 
     restoreBackground() {
+      alphaMask = null;
+      cachedKey = "";
+      cachedResult = null;
+    },
+
+    applyMask(mask: Uint8ClampedArray) {
+      alphaMask = mask;
+      cachedKey = "";
+      cachedResult = null;
+    },
+
+    clearMask() {
       alphaMask = null;
       cachedKey = "";
       cachedResult = null;
